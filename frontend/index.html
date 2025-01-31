@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Voting System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            display: inline-block;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+        }
+        #blockchain, #validity {
+            white-space: pre-wrap;
+            text-align: left;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+            width: 80%;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Blockchain Voting System</h1>
+
+    <!-- Vote Submission Form -->
+    <form id="voteForm">
+        <input type="text" id="voter_id" placeholder="Enter Voter ID" required>
+        <input type="text" id="candidate" placeholder="Enter Candidate Name" required>
+        <button type="submit">Submit Vote</button>
+    </form>
+
+    <h2>Blockchain Data</h2>
+    <button id="blockchainButton">View Blockchain</button>
+    <pre id="blockchain"></pre>
+
+    <h2>Blockchain Validity</h2>
+    <button id="validityButton">Check Blockchain Validity</button>
+    <pre id="validity"></pre>
+
+    <script>
+        const API_URL = "http://127.0.0.1:3030";
+
+        // Submit Vote
+        document.getElementById("voteForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            const voter_id = document.getElementById("voter_id").value;
+            const candidate = document.getElementById("candidate").value;
+
+            fetch(`${API_URL}/vote`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ voter_id, candidate })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Vote submitted successfully!");
+                console.log(data);
+            })
+            .catch(error => console.error("Error submitting vote:", error));
+        });
+
+        // Fetch Blockchain Data
+        document.getElementById("blockchainButton").addEventListener("click", function() {
+            console.log("🔍 Fetching blockchain data...");
+            fetch(`${API_URL}/blockchain`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Blockchain Data:", data);
+                    document.getElementById("blockchain").textContent = JSON.stringify(data, null, 4);
+                })
+                .catch(error => console.error("Error fetching blockchain:", error));
+        });
+
+        // Check Blockchain Validity
+        document.getElementById("validityButton").addEventListener("click", function() {
+            console.log("🔍 Checking blockchain validity...");
+            fetch(`${API_URL}/validity`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Validity Data:", data);
+                    document.getElementById("validity").textContent = 
+                        `Blockchain Validity: ${data.valid ? "✅ Valid" : "❌ Invalid"}`;
+                })
+                .catch(error => console.error("Error checking blockchain validity:", error));
+        });
+    </script>
+</body>
+</html>
