@@ -2,7 +2,8 @@ use warp::{Filter, cors};  // Explicitly import Filter
 use std::sync::{Arc, Mutex};
 use blockchain::{Blockchain, Block};
 use serde::{Serialize, Deserialize};
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use serde_json::json;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
@@ -13,8 +14,7 @@ struct VoteInput {
 #[tokio::main]
 async fn main() {
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
-    let blockchain_clone = blockchain.clone();
-    let blockchain_filter = warp::any().map(move || blockchain_clone.clone());
+    let blockchain_filter = warp::any().map(move || blockchain.clone());
 
     let cors = warp::cors()
         .allow_any_origin()
@@ -43,7 +43,7 @@ async fn main() {
             let transaction = format!("Voter: {} -> Candidate: {}", vote.voter_id, vote.candidate);
             blockchain.add_block(transaction);
             warp::reply::json(&blockchain.chain)
-        });
+        }).with(cors.clone());
 
     // GET /blockchain
     let get_blockchain = warp::get()
@@ -52,7 +52,7 @@ async fn main() {
         .map(|blockchain: Arc<Mutex<Blockchain>>| {
             let blockchain = blockchain.lock().unwrap();
             warp::reply::json(&blockchain.chain)
-        });
+        }).with(cors.clone());
 
     // GET /validity
     let check_validity = warp::get()
@@ -62,11 +62,31 @@ async fn main() {
             let blockchain = blockchain.lock().unwrap();
             let response = serde_json::json!({ "valid": blockchain.is_valid() });
             warp::reply::json(&response)
-        });
+        }).with(cors.clone());
 
-    let routes = add_vote.or(get_blockchain).or(check_validity).with(cors);
+    let get_vote_counts = warp::get()
+        .and(warp::path("vote_counts"))
+        .and(blockchain_filter.clone())
+        .map(|blockchain: Arc<Mutex<Blockchain>>| {
+            let blockchain = blockchain.lock().unwrap();
+            let mut vote_counts: HashMap<String, u32> = HashMap::new();
+
+            for block in &blockchain.chain {
+                if block.index == 0 { continue; } // Skip Genesis block
+
+                if let Some((_, candidate)) = block.transactions.split_once("->") {
+                    let candidate = candidate.trim().to_string();
+                    if !candidate.is_empty() {
+                        *vote_counts.entry(candidate).or_insert(0) += 1;
+                    }
+                }
+            }
+
+            warp::reply::json(&json!({ "vote_counts": vote_counts }))
+        }).with(cors.clone());
+
+    let routes = add_vote.or(get_blockchain).or(check_validity).or(get_vote_counts).with(cors);
 
     println!("🚀 API Server running on http://127.0.0.1:3030");
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
-

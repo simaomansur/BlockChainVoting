@@ -87,6 +87,10 @@
         <button type="submit">Submit Vote</button>
     </form>
 
+    <h2>Vote Counts</h2>
+    <button id="voteCountsButton">View Vote Counts</button>
+    <pre id="voteCounts"></pre>
+
     <h2>Blockchain Data</h2>
     <button id="blockchainButton">View Blockchain</button>
     <pre id="blockchain"></pre>
@@ -134,6 +138,51 @@
                 console.error("❌ Error submitting vote:", error);
                 alert(`⚠️ Failed to submit vote: ${error.message}`);
             });
+        });
+
+        function fetchBlockchain() {
+            console.log("🔍 Fetching blockchain data...");
+            fetch(`${API_URL}/blockchain`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Blockchain Data:", data);
+                    document.getElementById("blockchain").textContent = JSON.stringify(data, null, 4);
+                })
+                .catch(error => console.error("❌ Error fetching blockchain:", error));
+        }
+    
+        function fetchVoteCounts() {
+            console.log("🔍 Fetching vote counts...");
+            fetch(`${API_URL}/vote_counts`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Vote Counts Data:", data);
+                    let formatted = "Vote Counts:\n";
+                    for (const [candidate, count] of Object.entries(data.vote_counts)) {
+                        formatted += `${candidate}: ${count} votes\n`;
+                    }
+                    document.getElementById("voteCounts").textContent = formatted;
+                })
+                .catch(error => console.error("❌ Error fetching vote counts:", error));
+        }
+    
+        document.getElementById("blockchainButton").addEventListener("click", fetchBlockchain);
+        document.getElementById("voteCountsButton").addEventListener("click", fetchVoteCounts);
+
+        // Fetch and display vote counts
+        document.getElementById("voteCountsButton").addEventListener("click", function() {
+            console.log("🔍 Fetching vote counts...");
+            fetch(`${API_URL}/vote_counts`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Vote Counts Data:", data);
+                    let formatted = "Vote Counts:\n";
+                    for (const [candidate, count] of Object.entries(data.vote_counts)) {
+                        formatted += `${candidate}: ${count} votes\n`;
+                    }
+                    document.getElementById("voteCounts").textContent = formatted;
+                })
+                .catch(error => console.error("❌ Error fetching vote counts:", error));
         });
 
         // Fetch Blockchain Data
