@@ -1,8 +1,8 @@
-use warp::Filter;
-use warp::cors;
+use warp::{Filter, cors};  // Explicitly import Filter
 use std::sync::{Arc, Mutex};
 use blockchain::{Blockchain, Block};
 use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
@@ -13,24 +13,39 @@ struct VoteInput {
 #[tokio::main]
 async fn main() {
     let blockchain = Arc::new(Mutex::new(Blockchain::new()));
-    let blockchain_filter = warp::any().map(move || blockchain.clone());
+    let blockchain_clone = blockchain.clone();
+    let blockchain_filter = warp::any().map(move || blockchain_clone.clone());
 
     let cors = warp::cors()
-        .allow_any_origin()  // Allow frontend requests
-        .allow_methods(vec!["GET", "POST", "OPTIONS"])  // Allow GET, POST, and preflight OPTIONS
-        .allow_headers(vec!["Content-Type"]);  // Allow JSON headers
+        .allow_any_origin()
+        .allow_methods(vec!["GET", "POST", "OPTIONS"])
+        .allow_headers(vec!["Content-Type"]);
 
+    // Allowed Candidates
+    let valid_candidates: HashSet<String> = ["Alice", "Bob", "Charlie", "Diana"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+    // POST /vote
     let add_vote = warp::post()
         .and(warp::path("vote"))
         .and(warp::body::json())
         .and(blockchain_filter.clone())
-        .map(|vote: VoteInput, blockchain: Arc<Mutex<Blockchain>>| {
+        .map(move |vote: VoteInput, blockchain: Arc<Mutex<Blockchain>>| {
+            if !valid_candidates.contains(&vote.candidate) {
+                return warp::reply::json(&serde_json::json!({
+                    "error": "Invalid candidate. Choose Alice, Bob, Charlie, or Diana."
+                }));
+            }
+
             let mut blockchain = blockchain.lock().unwrap();
             let transaction = format!("Voter: {} -> Candidate: {}", vote.voter_id, vote.candidate);
             blockchain.add_block(transaction);
             warp::reply::json(&blockchain.chain)
         });
 
+    // GET /blockchain
     let get_blockchain = warp::get()
         .and(warp::path("blockchain"))
         .and(blockchain_filter.clone())
@@ -39,6 +54,7 @@ async fn main() {
             warp::reply::json(&blockchain.chain)
         });
 
+    // GET /validity
     let check_validity = warp::get()
         .and(warp::path("validity"))
         .and(blockchain_filter.clone())
@@ -53,3 +69,4 @@ async fn main() {
     println!("🚀 API Server running on http://127.0.0.1:3030");
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
+
