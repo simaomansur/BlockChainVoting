@@ -1,0 +1,24 @@
+{
+  "name": "Blockchain Voting App Container",
+  "build": {
+    "dockerfile": "../.devcontainer/Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/project",
+  "mounts": ["source=${localWorkspaceFolder},target=/project,type=bind,consistency=cached"],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  },
+  "forwardPorts": [3030, 3000],
+  "postCreateCommand": "cd /project/backend && cargo build && cd /project/frontend && npm install --legacy-peer-deps",
+  "containerUser": "vscode"
+}

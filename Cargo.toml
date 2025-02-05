@@ -1,2 +1,2 @@
 [workspace]
-members = ["blockchain", "api"]
+members = ["blockchain", "backend"]

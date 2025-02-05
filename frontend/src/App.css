@@ -1,0 +1,29 @@
+/* src/App.css */
+
+/* Professional typography and color scheme */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
+    color: #333;
+  }
+  
+  /* Responsive container */
+  .container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: auto;
+  }
+  
+  /* Loading fallback style */
+  .loading {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.5rem;
+  }
+  
+  /* Smooth transitions for interactive elements */
+  * {
+    transition: all 0.3s ease-in-out;
+  }
+  
