@@ -3,6 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { FaArrowRight } from 'react-icons/fa';
+import { Button} from 'react-bootstrap';
+
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
@@ -25,23 +27,6 @@ const Tagline = styled.p`
   font-size: 1.2rem;
   margin-bottom: 30px;
   color: #555;
-`;
-
-const Button = styled.button`
-  background: linear-gradient(45deg, #a8ff78, #78ffd6);
-  border: none;
-  padding: 12px 24px;
-  border-radius: 30px;
-  font-size: 1rem;
-  color: #333;
-  cursor: pointer;
-  font-weight: bold;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  &:hover {
-    transform: scale(1.05);
-  }
 `;
 
 function HomePage() {

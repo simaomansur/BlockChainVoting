@@ -4,6 +4,8 @@ import axios from 'axios';
 import QRCode from 'qrcode.react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
+import { Button} from 'react-bootstrap';
+
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -36,20 +38,6 @@ const InputField = styled.input`
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
-`;
-
-const Button = styled.button`
-  background: linear-gradient(45deg, #a8ff78, #78ffd6);
-  border: none;
-  padding: 12px;
-  border-radius: 30px;
-  font-size: 1rem;
-  color: #333;
-  cursor: pointer;
-  font-weight: bold;
-  &:hover {
-    transform: scale(1.05);
-  }
 `;
 
 function CreatePoll() {

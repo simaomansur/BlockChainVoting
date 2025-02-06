@@ -6,6 +6,7 @@ import { FaVoteYea } from 'react-icons/fa';
 import LoadingSpinner from './LoadingSpinner';
 import { toast } from 'react-toastify';
 
+
 const GridContainer = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

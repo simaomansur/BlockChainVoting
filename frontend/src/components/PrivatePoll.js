@@ -8,6 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { FaVoteYea } from 'react-icons/fa';
 import { ProgressBar } from 'react-bootstrap'; // Optional
 
+
 const OptionItem = styled.div`
   margin-bottom: 15px;
   display: flex;
