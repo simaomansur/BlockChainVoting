@@ -1,20 +1,14 @@
 {
-  "name": "custom-ballot-frontend",
-  "version": "1.0.0",
+  "name": "frontend",
+  "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "axios": "^0.27.2",
-    "bootstrap": "^5.3.3",
-    "qrcode.react": "^1.0.1",
+    "axios": "^1.7.9",
+    "cra-template": "1.2.0",
     "react": "^18.2.0",
-    "react-bootstrap": "^2.10.9",
     "react-dom": "^18.2.0",
-    "react-icons": "^4.3.1",
-    "react-router-dom": "^6.3.0",
-    "react-scripts": "5.0.1",
-    "react-spinners": "^0.13.8",
-    "react-toastify": "^9.1.1",
-    "styled-components": "^5.3.6"
+    "react-router-dom": "^7.1.5",
+    "react-scripts": "^5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -22,9 +16,11 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "devDependencies": {
-    "@testing-library/react": "^13.4.0",
-    "eslint": "^8.23.0"
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "browserslist": {
     "production": [

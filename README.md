@@ -1,16 +1,7 @@
-How to get it working
+How to run the app for beginners
 
-open terminal
-
-  -source $HOME/.cargo/env
-
-  -cargo build
-
-open new terminal
-
-  -cd frontend
-
-  -python3 -m http.server 8000
-
-ctrl + click that link
-ctrl + c to close
+1. click bottom left corner of the screen
+2. build the container with docker
+3. after the build is succesful open another terminal so you have two showing
+4. in one terminal type cargo run to start the backend api
+5. in the other terminal type cd frontend and then npm start to start the frontend

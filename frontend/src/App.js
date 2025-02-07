@@ -1,32 +1,35 @@
 // src/App.js
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import './App.css';
-
-// Lazy load pages for performance
-const HomePage = lazy(() => import('./components/HomePage'));
-const PublicPolls = lazy(() => import('./components/PublicPolls'));
-const CreatePoll = lazy(() => import('./components/CreatePoll'));
-const PrivatePoll = lazy(() => import('./components/PrivatePoll'));
+import React from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import HomePage from './components/HomePage';
+import CreatePollPage from './components/CreatePollPage';
+import ExistingPollsPage from './components/ExistingPollsPage';
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <div className="container">
-        <Suspense fallback={<div className="loading">Loading...</div>}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/public" element={<PublicPolls />} />
-            <Route path="/create" element={<CreatePoll />} />
-            <Route path="/private/:pollId" element={<PrivatePoll />} />
-          </Routes>
-        </Suspense>
+    <BrowserRouter>
+      <div>
+        {/* Optionally, a simple navigation bar */}
+        <nav>
+          <ul>
+            <li>
+              <Link to="/">Home</Link>
+            </li>
+            <li>
+              <Link to="/create">Create Poll</Link>
+            </li>
+            <li>
+              <Link to="/existing">Existing Polls</Link>
+            </li>
+          </ul>
+        </nav>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/create" element={<CreatePollPage />} />
+          <Route path="/existing" element={<ExistingPollsPage />} />
+        </Routes>
       </div>
-      <Footer />
-    </Router>
+    </BrowserRouter>
   );
 }
 

@@ -5,7 +5,9 @@
     "context": ".."
   },
   "workspaceFolder": "/project",
-  "mounts": ["source=${localWorkspaceFolder},target=/project,type=bind,consistency=cached"],
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/project,type=bind,consistency=cached"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -19,6 +21,6 @@
     }
   },
   "forwardPorts": [3030, 3000],
-  "postCreateCommand": "cd /project/backend && cargo build && cd /project/frontend && npm install --legacy-peer-deps",
+  "postCreateCommand": "cd backend && cargo build && cd ../frontend && npm install",
   "containerUser": "vscode"
 }
