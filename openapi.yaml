@@ -1,0 +1,139 @@
+# openapi.yaml
+openapi: 3.0.0
+info:
+  title: Blockchain Voting App API
+  version: 1.0.0
+  description: API documentation for the Blockchain Voting App.
+servers:
+  - url: http://127.0.0.1:3030
+paths:
+  /poll/create:
+    post:
+      summary: Create a new poll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollInput'
+      responses:
+        '200':
+          description: Poll created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  poll_id:
+                    type: string
+  /poll/vote:
+    post:
+      summary: Cast a vote for a poll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteInput'
+      responses:
+        '200':
+          description: Vote added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /polls:
+    get:
+      summary: Retrieve list of polls
+      responses:
+        '200':
+          description: List of polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PollInput'
+  /poll/{poll_id}/blockchain:
+    get:
+      summary: Retrieve blockchain for a specific poll
+      parameters:
+        - in: path
+          name: poll_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blockchain data for the poll
+  /poll/{poll_id}/validity:
+    get:
+      summary: Check blockchain validity for a specific poll
+      parameters:
+        - in: path
+          name: poll_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validity of the poll blockchain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+  /poll/{poll_id}/vote_counts:
+    get:
+      summary: Retrieve vote counts for a poll
+      parameters:
+        - in: path
+          name: poll_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vote counts for each candidate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vote_counts:
+                    type: object
+                    additionalProperties:
+                      type: integer
+components:
+  schemas:
+    PollInput:
+      type: object
+      properties:
+        poll_id:
+          type: string
+        title:
+          type: string
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        is_public:
+          type: boolean
+    VoteInput:
+      type: object
+      properties:
+        poll_id:
+          type: string
+        voter_id:
+          type: string
+        candidate:
+          type: string

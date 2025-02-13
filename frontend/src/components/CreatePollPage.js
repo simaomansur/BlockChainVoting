@@ -1,12 +1,16 @@
 // src/components/CreatePollPage.js
-import React, { useState } from 'react';
-import { createPoll } from '../api/api'; // your API helper
+import React, { useState, useContext } from 'react';
+import { createPoll } from '../api/api';
+import { TextField, Button, Typography, Paper, Grid } from '@mui/material';
+import ErrorSnackbar from './ErrorSnackbar';
+import { PollContext } from '../context/PollContext';
 
 const CreatePollPage = () => {
   const [pollId, setPollId] = useState('');
   const [title, setTitle] = useState('');
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState('');
+  const { error, setError } = useContext(PollContext);
 
   const handleCreatePoll = async (e) => {
     e.preventDefault();
@@ -23,63 +27,73 @@ const CreatePollPage = () => {
       const response = await createPoll(pollData);
       console.log('Poll created:', response.data);
       alert('Poll created successfully');
-    } catch (error) {
-      console.error('Error creating poll:', error);
-      alert('Error creating poll');
+      // Optionally clear the form
+      setPollId('');
+      setTitle('');
+      setQuestion('');
+      setOptions('');
+    } catch (err) {
+      console.error('Error creating poll:', err);
+      setError('Error creating poll');
     }
   };
 
+  const handleCloseSnackbar = () => {
+    setError(null);
+  };
+
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Create a New Poll</h2>
+    <Paper elevation={3} sx={{ padding: 4 }}>
+      <Typography variant="h5" gutterBottom>
+        Create a New Poll
+      </Typography>
       <form onSubmit={handleCreatePoll}>
-        <div>
-          <label>
-            Poll ID:
-            <input
-              type="text"
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              label="Poll ID"
+              fullWidth
               value={pollId}
               onChange={(e) => setPollId(e.target.value)}
               required
             />
-          </label>
-        </div>
-        <div>
-          <label>
-            Title:
-            <input
-              type="text"
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              label="Title"
+              fullWidth
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
             />
-          </label>
-        </div>
-        <div>
-          <label>
-            Question:
-            <input
-              type="text"
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              label="Question"
+              fullWidth
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               required
             />
-          </label>
-        </div>
-        <div>
-          <label>
-            Options (comma-separated):
-            <input
-              type="text"
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              label="Options (comma-separated)"
+              fullWidth
               value={options}
               onChange={(e) => setOptions(e.target.value)}
               required
             />
-          </label>
-        </div>
-        <button type="submit">Create Poll</button>
+          </Grid>
+          <Grid item xs={12}>
+            <Button type="submit" variant="contained" color="primary">
+              Create Poll
+            </Button>
+          </Grid>
+        </Grid>
       </form>
-    </div>
+      <ErrorSnackbar error={error} onClose={handleCloseSnackbar} />
+    </Paper>
   );
 };
 
