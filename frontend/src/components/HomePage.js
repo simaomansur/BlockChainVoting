@@ -17,6 +17,12 @@ const HomePage = () => {
           <button>Vote on an Existing Poll</button>
         </Link>
       </div>
+      <div>
+        <Link to="/vote">
+          <button>Vote Results</button>
+        </Link>
+      </div>
+      
     </div>
   );
 };
