@@ -82,7 +82,6 @@ async fn main() {
         }).with(cors.clone());
 
     // POST /poll/vote - Casts a vote on a specific poll.
-    // POST /poll/vote - Casts a vote on a specific poll.
     let add_vote = warp::post()
         .and(warp::path("poll"))
         .and(warp::path("vote"))
@@ -90,16 +89,14 @@ async fn main() {
         .and(pm_filter.clone())
         .map(|vote: VoteInput, poll_manager: Arc<Mutex<PollManager>>| {
             let mut pm = poll_manager.lock().unwrap();
-            
-            // 1) Check if poll exists
+
+            // 1) Check if poll exists.
             let poll = match pm.get_poll(&vote.poll_id) {
                 Some(p) => p,
-                None => {
-                    return warp::reply::json(&json!({ "error": "Poll not found" }));
-                }
+                None => return warp::reply::json(&json!({ "error": "Poll not found" }))
             };
 
-            // 2) Parse the single JSON string in poll.metadata.options[0]
+            // 2) Get the raw options string.
             if poll.metadata.options.is_empty() {
                 return warp::reply::json(&json!({
                     "error": "No options defined for this poll."
@@ -107,60 +104,65 @@ async fn main() {
             }
 
             let json_str = &poll.metadata.options[0];
+
+            // 3) Try to parse poll.options[0] as JSON.
             let parsed_options: serde_json::Value = match serde_json::from_str(json_str) {
                 Ok(val) => val,
-                Err(e) => {
+                Err(_) => {
+                    // Fallback: treat poll.metadata.options as a plain array of strings.
+                    serde_json::Value::Array(
+                        poll.metadata.options.iter().map(|s| serde_json::Value::String(s.clone())).collect()
+                    )
+                }
+            };
+
+            // 4) Determine if we have a structured (object) or plain (array) options.
+            let (contest, candidate_str, valid_candidate) = {
+                // Expect vote.candidate in the format "contest: candidate"
+                let parts: Vec<&str> = vote.candidate.splitn(2, ": ").collect();
+                if parts.len() < 2 {
                     return warp::reply::json(&json!({
-                        "error": format!("Error parsing poll options: {}", e)
+                        "error": "Invalid candidate format. Expect 'contest: candidate'."
+                    }));
+                }
+                let contest = parts[0];
+                let candidate_str = parts[1];
+
+                if parsed_options.is_object() {
+                    // Structured poll with multiple contests.
+                    let obj = parsed_options.as_object().unwrap();
+                    let arr = match obj.get(contest) {
+                        Some(val) if val.is_array() => val.as_array().unwrap(),
+                        _ => {
+                            return warp::reply::json(&json!({
+                                "error": format!("Contest '{}' not found.", contest)
+                            }));
+                        }
+                    };
+                    let valid = arr.iter().any(|v| v.as_str().map_or(false, |s| s == candidate_str));
+                    (contest, candidate_str, valid)
+                } else if parsed_options.is_array() {
+                    // Plain poll: use a default contest.
+                    let arr = parsed_options.as_array().unwrap();
+                    let valid = arr.iter().any(|v| v.as_str().map_or(false, |s| s == candidate_str));
+                    // For plain polls, force the contest key to "default"
+                    ("default", candidate_str, valid)
+                } else {
+                    return warp::reply::json(&json!({
+                        "error": "Poll options are not structured correctly."
                     }));
                 }
             };
 
-            // 3) Suppose the user sends "presidency: Candidate A" in vote.candidate
-            // We'll split by ": " to separate the contest from the actual candidate
-            let parts: Vec<&str> = vote.candidate.splitn(2, ": ").collect();
-            if parts.len() < 2 {
-                return warp::reply::json(&json!({
-                    "error": "Invalid candidate format. Expect 'contest: candidate'."
-                }));
-            }
-            let contest = parts[0];
-            let actual_candidate = parts[1];
-
-            // 4) Check if the contest exists in the JSON
-            //    The structure is something like: {
-            //       "presidency": ["Candidate A", "Candidate B"],
-            //       "congress": ["Party X", "Party Y"],
-            //       ...
-            //    }
-            if !parsed_options.is_object() {
-                return warp::reply::json(&json!({
-                    "error": "Poll options are not structured correctly."
-                }));
-            }
-
-            let obj = parsed_options.as_object().unwrap();
-            let contest_array = match obj.get(contest) {
-                Some(arr) if arr.is_array() => arr.as_array().unwrap(),
-                _ => {
-                    return warp::reply::json(&json!({
-                        "error": format!("Contest '{}' not found.", contest)
-                    }));
-                }
-            };
-
-            // 5) Check if the actual candidate is in the array
-            let valid_candidate = contest_array.iter().any(|val| {
-                val.as_str().map_or(false, |s| s == actual_candidate)
-            });
             if !valid_candidate {
                 return warp::reply::json(&json!({
-                    "error": format!("'{}' is not a valid candidate in '{}'.", actual_candidate, contest)
+                    "error": format!("'{}' is not a valid candidate in contest '{}'.", candidate_str, contest)
                 }));
             }
 
-            // 6) If we get here, the vote is valid. Add the block to the blockchain
-            let transaction = format!("Voter: {} -> {}: {}", vote.voter_id, contest, actual_candidate);
+            // 5) If valid, construct the transaction and add the vote.
+            // The transaction string is: "Voter: {voter_id} -> {contest}: {candidate_str}"
+            let transaction = format!("Voter: {} -> {}: {}", vote.voter_id, contest, candidate_str);
             match pm.add_vote(&vote.poll_id, transaction) {
                 Ok(_) => warp::reply::json(&json!({ "status": "Vote added successfully" })),
                 Err(e) => warp::reply::json(&json!({ "error": e })),
@@ -168,16 +170,16 @@ async fn main() {
         })
         .with(cors.clone());
 
-
-    // OPTIONS /poll/vote - Handle preflight CORS requests for voting.
-    let vote_options = warp::options()
+        // OPTIONS /poll/vote - Handle preflight CORS requests for voting.
+        let vote_options = warp::options()
         .and(warp::path("poll"))
         .and(warp::path("vote"))
         .map(|| warp::reply())
         .with(cors.clone());
 
-    // Combine the POST and OPTIONS handlers for /poll/vote.
-    let vote_route = add_vote.or(vote_options);
+        // Combine POST and OPTIONS handlers.
+        let vote_route = add_vote.or(vote_options);
+
 
     // GET /polls - Retrieves a list of all polls.
     let list_polls = warp::get()
