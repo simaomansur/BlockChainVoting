@@ -17,11 +17,18 @@ export const getExistingPolls = () => {
   return apiClient.get('/polls');
 };
 
-
 export const castVote = (voteData) => {
   return apiClient.post('/poll/vote', voteData);
 };
 
 export const getPollBlockchain = (pollId) => {
   return apiClient.get(`/poll/${pollId}/blockchain`);
+};
+
+export const getPollDetails = (pollId) => {
+  return apiClient.get(`/poll/${pollId}`);
+}
+
+export const getVoteCounts = (pollId) => {
+  return apiClient.get(`/poll/${pollId}/vote_counts`);
 };

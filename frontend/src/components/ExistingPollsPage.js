@@ -1,6 +1,6 @@
 // src/components/ExistingPollsPage.js
 import React, { useEffect, useState } from 'react';
-import { getExistingPolls } from '../api/api'; // create this helper in your API file
+import { getExistingPolls } from '../api/api';
 import { Link } from 'react-router-dom';
 
 const ExistingPollsPage = () => {
@@ -12,9 +12,9 @@ const ExistingPollsPage = () => {
       try {
         const response = await getExistingPolls();
         setPolls(response.data);
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching polls:', error);
+      } finally {
         setLoading(false);
       }
     };
@@ -35,10 +35,8 @@ const ExistingPollsPage = () => {
         <ul>
           {polls.map((poll) => (
             <li key={poll.poll_id}>
-              {poll.title} –{' '}
-              <Link to={`/vote/${poll.poll_id}`}>
-                Vote
-              </Link>
+              <h3>{poll.title}</h3>
+              <Link to={`/vote/${poll.poll_id}`}>Vote</Link>
             </li>
           ))}
         </ul>

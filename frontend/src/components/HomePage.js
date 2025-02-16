@@ -22,7 +22,11 @@ const HomePage = () => {
           <button>Vote Results</button>
         </Link>
       </div>
-      
+      <div>
+        <Link to="/ballot/election">
+          <button>Unofficial Ballot</button>
+        </Link>
+      </div>
     </div>
   );
 };
