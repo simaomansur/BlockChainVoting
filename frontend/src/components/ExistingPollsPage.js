@@ -22,9 +22,11 @@ const ExistingPollsPage = () => {
     const fetchPolls = async () => {
       try {
         const data = await getExistingPolls();
-        setPolls(data);
+        // Filter out the poll with poll_id === "election"
+        const filtered = data.filter((poll) => poll.poll_id !== "election");
+        setPolls(filtered);
       } catch (err) {
-        setError(err.message || "Error fetching polls");
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -63,7 +65,10 @@ const ExistingPollsPage = () => {
                 primary={poll.title}
                 secondary={poll.question}
               />
-              <Button variant="outlined" onClick={() => navigate(`/vote/${poll.poll_id}`)}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(`/vote/${poll.poll_id}`)}
+              >
                 Vote
               </Button>
             </ListItem>

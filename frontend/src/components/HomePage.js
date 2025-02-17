@@ -39,9 +39,9 @@ const HomePage = () => {
             <Button
               variant="contained"
               fullWidth
-              onClick={() => navigate("/results")}
+              onClick={() => navigate("/election")}
             >
-              Election Results
+              Election
             </Button>
           </Grid>
         </Grid>
