@@ -45,9 +45,6 @@ async fn main() {
         .map(|poll: PollInput, poll_manager: Arc<Mutex<PollManager>>| {
             let mut pm = poll_manager.lock().unwrap();
             pm.create_poll(poll.clone());
-            // For simplicity, store the poll metadata as a block.
-            let poll_data = serde_json::to_string(&poll).unwrap();
-            pm.add_vote(&poll.poll_id, poll_data).unwrap();
             warp::reply::json(&json!({
                 "status": "Poll created successfully",
                 "poll_id": poll.poll_id
@@ -228,8 +225,8 @@ async fn main() {
         .or(vote_route)
         .or(list_polls)
         .or(get_blockchain)
-        .or(get_poll_details)
         .or(get_vote_counts)
+        .or(get_poll_details)
         .or(check_validity)
         .or(verify_vote)
         .with(cors);

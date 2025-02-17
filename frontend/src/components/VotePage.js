@@ -101,16 +101,16 @@ const VotePage = () => {
 
       {poll && poll.options && (
         <form onSubmit={handleVoteSubmit}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
+          < container spacing={2}>
+            < item xs={12}>
               <TextField
                 fullWidth
                 label="Enter Voter ID"
                 value={voterId}
                 onChange={(e) => setVoterId(e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12}>
+            </item>
+            <item xs={12}>
               <Typography variant="h6" gutterBottom>
                 {poll.question}
               </Typography>
@@ -127,8 +127,8 @@ const VotePage = () => {
                   />
                 ))}
               </RadioGroup>
-            </Grid>
-            <Grid item xs={12}>
+            </item>
+            <item xs={12}>
               <Button
                 fullWidth
                 type="submit"
@@ -138,12 +138,11 @@ const VotePage = () => {
               >
                 {loading ? "Submitting..." : "Submit Vote"}
               </Button>
-            </Grid>
-          </Grid>
+            </item>
+          </container>
         </form>
       )}
-
-      {voteCounts && (
+      {voteCounts && Object.keys(voteCounts).length > 0 ? (
         <Box mt={4}>
           <Typography variant="h5" align="center">
             Live Vote Results
@@ -155,6 +154,12 @@ const VotePage = () => {
               </ListItem>
             ))}
           </List>
+        </Box>
+      ) : (
+        <Box mt={4}>
+          <Typography variant="h6" align="center">
+            No votes yet.
+          </Typography>
         </Box>
       )}
     </Paper>
