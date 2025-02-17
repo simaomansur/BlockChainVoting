@@ -1,34 +1,48 @@
-// src/api/api.js
-import axios from 'axios';
+import axios from "axios";
 
-// Set the base URL for your backend API
-const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:3030',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const API_BASE_URL = "http://127.0.0.1:3030";
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
 });
 
-export const createPoll = (pollData) => {
-  return apiClient.post('/poll/create', pollData);
+// Retrieve the list of existing polls.
+export const getExistingPolls = async () =>
+  api.get("/polls").then(res => res.data);
+
+// Create a new poll with the provided pollData.
+export const createPoll = async (pollData) =>
+  api.post("/poll/create", pollData).then(res => res.data);
+
+// Submit a vote. If voteData.candidate is an object, it is stringified.
+export const submitVote = async (voteData) => {
+  const candidateValue =
+    typeof voteData.candidate === "object"
+      ? JSON.stringify(voteData.candidate)
+      : voteData.candidate;
+  return api
+    .post("/poll/vote", {
+      ...voteData,
+      candidate: candidateValue,
+    })
+    .then(res => res.data);
 };
 
-export const getExistingPolls = () => {
-  return apiClient.get('/polls');
-};
+// Retrieve the blockchain for a specific poll.
+export const getBlockchain = async (pollId) =>
+  api.get(`/poll/${pollId}/blockchain`).then(res => res.data);
 
-export const castVote = (voteData) => {
-  return apiClient.post('/poll/vote', voteData);
-};
+// Retrieve vote counts for a specific poll.
+export const getVoteCounts = async (pollId) =>
+  api.get(`/poll/${pollId}/vote_counts`).then(res => res.data);
 
-export const getPollBlockchain = (pollId) => {
-  return apiClient.get(`/poll/${pollId}/blockchain`);
-};
+// Verify a vote for a specific poll and voter.
+export const getVoteVerification = async (pollId, voterId) =>
+  api.get(`/poll/${pollId}/verify_vote/${voterId}`).then(res => res.data);
 
-export const getPollDetails = (pollId) => {
-  return apiClient.get(`/poll/${pollId}`);
-}
+// Retrieve poll details (metadata) for a specific poll.
+export const getPollDetails = async (pollId) =>
+  api.get(`/poll/${pollId}`).then(res => res.data);
 
-export const getVoteCounts = (pollId) => {
-  return apiClient.get(`/poll/${pollId}/vote_counts`);
-};
+export default api;

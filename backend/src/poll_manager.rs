@@ -1,82 +1,81 @@
-// poll_manager.rs
-
 use std::collections::HashMap;
 use crate::blockchain::Blockchain;
+use crate::election_blockchain::ElectionBlockchain;
 use serde::{Serialize, Deserialize};
 
-/// Represents the input data for creating a poll.
-/// Contains metadata such as poll_id, title, question, allowed options, and visibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PollInput {
     pub poll_id: String,
     pub title: String,
     pub question: String,
-    /// Allowed vote options (e.g., ["Dog", "Cat", "Rabbit"]).
     pub options: Vec<String>,
     pub is_public: bool,
 }
 
-/// Represents a single poll with its metadata and associated blockchain.
+/// An enum representing a poll. The Normal variant uses a standard blockchain (one block per vote),
+/// while the Election variant uses an ElectionBlockchain where each vote creates a new block.
 #[derive(Debug, Clone)]
-pub struct Poll {
-    /// Metadata for the poll.
-    pub metadata: PollInput,
-    /// The blockchain that stores votes (and optionally poll creation data).
-    pub blockchain: Blockchain,
+pub enum Poll {
+    Normal {
+        metadata: PollInput,
+        blockchain: Blockchain,
+    },
+    Election {
+        metadata: PollInput,
+        blockchain: ElectionBlockchain,
+    },
 }
 
-/// Manages multiple polls, each represented by a `Poll` instance.
+/// Manages polls by mapping poll IDs to Poll objects.
 pub struct PollManager {
-    /// A hash map linking a poll ID to its corresponding poll.
     pub polls: HashMap<String, Poll>,
 }
 
 impl PollManager {
-    /// Creates a new `PollManager` with no polls.
     pub fn new() -> Self {
         PollManager {
             polls: HashMap::new(),
         }
     }
 
-    /// Creates a new poll using the provided poll metadata.
-    ///
-    /// # Arguments
-    ///
-    /// * `poll` - A `PollInput` instance containing poll details (including allowed options).
+    /// Creates a new poll.
+    /// If the poll_id is "election", an Election poll is created using ElectionBlockchain.
+    /// Otherwise, a Normal poll is created.
     pub fn create_poll(&mut self, poll: PollInput) {
-        // Initialize a new blockchain for the poll.
-        let blockchain = Blockchain::new();
-        // Create a new Poll instance that includes its metadata and blockchain.
-        let poll_instance = Poll {
-            metadata: poll.clone(),
-            blockchain,
-        };
-        // Insert the poll into the manager using poll_id as the key.
-        self.polls.insert(poll.poll_id.clone(), poll_instance);
+        if poll.poll_id == "election" {
+            let blockchain = ElectionBlockchain::new();
+            let poll_instance = Poll::Election { metadata: poll.clone(), blockchain };
+            self.polls.insert(poll.poll_id.clone(), poll_instance);
+        } else {
+            let blockchain = Blockchain::new();
+            let poll_instance = Poll::Normal { metadata: poll.clone(), blockchain };
+            self.polls.insert(poll.poll_id.clone(), poll_instance);
+        }
     }
 
-    /// Adds a vote to the poll's blockchain.
-    ///
-    /// # Arguments
-    ///
-    /// * `poll_id` - The identifier for the poll.
-    /// * `vote_data` - A string representing the vote (e.g., "Voter: John -> Candidate: Dog").
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if the vote was added successfully.
-    /// * `Err(String)` if the poll does not exist.
+    /// Adds a vote to the specified poll.
+    /// For an Election poll, the vote_data is expected to be a JSON string (which is parsed)
+    /// and then used to create a new block (one block per vote). For a Normal poll, vote_data is added as a new block.
     pub fn add_vote(&mut self, poll_id: &str, vote_data: String) -> Result<(), String> {
         if let Some(poll) = self.polls.get_mut(poll_id) {
-            poll.blockchain.add_block(vote_data);
-            Ok(())
+            match poll {
+                Poll::Election { blockchain, .. } => {
+                    // Parse the vote data as JSON.
+                    let vote_json: serde_json::Value = serde_json::from_str(&vote_data)
+                        .map_err(|e| format!("Vote JSON parse error: {}", e))?;
+                    blockchain.add_vote(vote_json)
+                },
+                Poll::Normal { blockchain, .. } => {
+                    blockchain.add_block(vote_data);
+                    Ok(())
+                }
+            }
         } else {
             Err(format!("Poll '{}' does not exist", poll_id))
         }
     }
 
-    /// Retrieves a poll (including its metadata and blockchain) for a given poll ID.
+    /// Retrieves a poll by poll_id.
     pub fn get_poll(&self, poll_id: &str) -> Option<&Poll> {
         self.polls.get(poll_id)
     }

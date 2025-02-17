@@ -1,19 +1,30 @@
-// src/components/ExistingPollsPage.js
-import React, { useEffect, useState } from 'react';
-import { getExistingPolls } from '../api/api';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { getExistingPolls } from "../api/api";
+import { useNavigate } from "react-router-dom";
+import {
+  Paper,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  Button,
+  CircularProgress,
+  Box,
+} from "@mui/material";
 
 const ExistingPollsPage = () => {
   const [polls, setPolls] = useState([]);
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPolls = async () => {
       try {
-        const response = await getExistingPolls();
-        setPolls(response.data);
-      } catch (error) {
-        console.error('Error fetching polls:', error);
+        const data = await getExistingPolls();
+        setPolls(data);
+      } catch (err) {
+        setError(err.message || "Error fetching polls");
       } finally {
         setLoading(false);
       }
@@ -22,26 +33,44 @@ const ExistingPollsPage = () => {
     fetchPolls();
   }, []);
 
-  if (loading) {
-    return <div>Loading polls...</div>;
-  }
-
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Existing Polls</h2>
-      {polls.length === 0 ? (
-        <p>No polls found.</p>
-      ) : (
-        <ul>
-          {polls.map((poll) => (
-            <li key={poll.poll_id}>
-              <h3>{poll.title}</h3>
-              <Link to={`/vote/${poll.poll_id}`}>Vote</Link>
-            </li>
-          ))}
-        </ul>
+    <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4 }}>
+      <Typography variant="h4" gutterBottom>
+        Existing Polls
+      </Typography>
+
+      {loading && (
+        <Box display="flex" justifyContent="center" my={2}>
+          <CircularProgress />
+        </Box>
       )}
-    </div>
+
+      {error && (
+        <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
+
+      {!loading && polls.length === 0 && (
+        <Typography variant="body1">No polls available.</Typography>
+      )}
+
+      {polls.length > 0 && (
+        <List>
+          {polls.map((poll) => (
+            <ListItem key={poll.poll_id} divider>
+              <ListItemText
+                primary={poll.title}
+                secondary={poll.question}
+              />
+              <Button variant="outlined" onClick={() => navigate(`/vote/${poll.poll_id}`)}>
+                Vote
+              </Button>
+            </ListItem>
+          ))}
+        </List>
+      )}
+    </Paper>
   );
 };
 

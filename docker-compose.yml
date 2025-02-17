@@ -1,6 +1,4 @@
-# docker-compose.yml
 version: '3.8'
-
 services:
   backend:
     build:
@@ -23,3 +21,10 @@ services:
       - ./frontend:/frontend
     environment:
       - CHOKIDAR_USEPOLLING=true
+
+  backend_test:
+    image: "rust:latest"
+    working_dir: /project
+    volumes:
+      - ./:/project
+    command: ["cargo", "test", "--manifest-path", "backend/Cargo.toml", "--test", "backend_tests"]

@@ -1,142 +1,144 @@
-// src/components/ElectionBallotPage.js
-import React, { useState, useEffect } from 'react';
-import { getPollDetails, castVote, getPollBlockchain } from '../api/api';
-import { Paper, Typography, Button, TextField } from '@mui/material';
+import React, { useState, useEffect } from "react";
+import { getPollDetails, submitVote } from "../api/api";
+import {
+  Paper,
+  Typography,
+  TextField,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Button,
+  Alert,
+  CircularProgress,
+  Box,
+} from "@mui/material";
 
 const ElectionBallotPage = () => {
-  const pollId = "election"; // Fixed poll ID for the election poll
-  const [poll, setPoll] = useState(null);
-  const [selectedOption, setSelectedOption] = useState({});
-  const [voterId, setVoterId] = useState('');
-  const [message, setMessage] = useState('');
-  const [blockchain, setBlockchain] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [election, setElection] = useState(null);
+  const [voterId, setVoterId] = useState("");
+  const [selectedVotes, setSelectedVotes] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [loadingElection, setLoadingElection] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    const fetchPoll = async () => {
+    const fetchElection = async () => {
       try {
-        const response = await getPollDetails(pollId);
-        // Since our PollInput.options is a Vec<String> but for elections we stored structured JSON,
-        // we parse the first element as JSON:
-        let pollData = response.data;
-        if (pollData.error) {
-          pollData = null;
-        } else if (typeof pollData.options[0] === 'string') {
-          try {
-            pollData.options = JSON.parse(pollData.options[0]);
-          } catch (err) {
-            console.error("Error parsing poll options:", err);
-          }
+        const electionData = await getPollDetails("election");
+  
+        // If electionData.options is an array of length 1 containing JSON, parse it:
+        if (
+          electionData &&
+          Array.isArray(electionData.options) &&
+          electionData.options.length > 0
+        ) {
+          const parsed = JSON.parse(electionData.options[0]); // convert JSON string -> object
+          setElection({
+            ...electionData,
+            options: parsed, // replace the string array with the parsed object
+          });
+        } else {
+          throw new Error("Election poll data is invalid or missing options.");
         }
-        setPoll(pollData);
-      } catch (error) {
-        console.error("Error fetching poll details:", error);
+      } catch (err) {
+        setError(err.message);
       } finally {
-        setLoading(false);
+        setLoadingElection(false);
       }
     };
+  
+    fetchElection();
+  }, []);  
 
-    fetchPoll();
-  }, [pollId]);
-
-  const handleVoteChange = (contest, option) => {
-    setSelectedOption(prev => ({ ...prev, [contest]: option }));
+  const handleVoteChange = (contest, choice) => {
+    setSelectedVotes((prev) => ({ ...prev, [contest]: choice }));
   };
 
-  const handleSubmit = async () => {
-    if (!voterId) {
-      setMessage("Please enter your voter ID.");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!voterId || Object.keys(selectedVotes).length === 0) {
+      setError("Please enter your voter ID and select your choices.");
       return;
     }
-    // Validate that a vote is selected for each contest
-    for (let contest in poll.options) {
-      if (!selectedOption[contest]) {
-        setMessage(`Please select an option for ${contest}.`);
-        return;
-      }
-    }
-    setMessage("");
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
-      // Send a vote for each contest
-      const votePromises = Object.entries(selectedOption).map(([contest, option]) => {
-        return castVote({
-          poll_id: pollId,
-          voter_id: voterId,
-          candidate: `${contest}: ${option}`
-        });
+      await submitVote({
+        poll_id: "election",
+        voter_id: voterId,
+        candidate: JSON.stringify(selectedVotes),
       });
-      await Promise.all(votePromises);
-      setMessage("Votes cast successfully!");
-      // Fetch and display updated blockchain data
-      const chainResponse = await getPollBlockchain(pollId);
-      setBlockchain(chainResponse.data);
-    } catch (error) {
-      console.error("Error casting votes:", error);
-      setMessage("Error casting votes.");
+      setSuccess("Election vote submitted successfully!");
+    } catch (err) {
+      setError("Error submitting election vote.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) return <div>Loading ballot...</div>;
-  if (!poll || !poll.options) return <div>Ballot not found.</div>;
-
   return (
-    <Paper sx={{ p: 4, m: 2, maxWidth: 800, margin: 'auto' }}>
+    <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4 }}>
       <Typography variant="h4" align="center" gutterBottom>
-        Official Ballot
-      </Typography>
-      <Typography variant="h6" align="center" gutterBottom>
-        {poll.title}
-      </Typography>
-      <Typography variant="body1" align="center" gutterBottom>
-        {poll.question}
+        Election Ballot
       </Typography>
 
-      {Object.keys(poll.options).map((contest) => (
-        <div key={contest} style={{ marginTop: 20 }}>
-          <Typography variant="subtitle1">
-            {contest.charAt(0).toUpperCase() + contest.slice(1)}
-          </Typography>
-          {poll.options[contest].map((option) => (
-            <Button
-              key={option}
-              variant={selectedOption[contest] === option ? "contained" : "outlined"}
-              onClick={() => handleVoteChange(contest, option)}
-              sx={{ mr: 1, mt: 1 }}
-            >
-              {option}
-            </Button>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+      {loadingElection ? (
+        <Box display="flex" justifyContent="center" my={2}>
+          <CircularProgress />
+        </Box>
+      ) : election ? (
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Enter Voter ID"
+            value={voterId}
+            onChange={(e) => setVoterId(e.target.value)}
+            sx={{ mb: 3 }}
+          />
+          {Object.keys(election.options).map((contest) => (
+            <Paper key={contest} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                {contest.charAt(0).toUpperCase() + contest.slice(1)}
+              </Typography>
+              {Array.isArray(election.options[contest]) ? (
+                <RadioGroup
+                  name={contest}
+                  value={selectedVotes[contest] || ""}
+                  onChange={(e) => handleVoteChange(contest, e.target.value)}
+                >
+                  {election.options[contest].map((choice) => (
+                    <FormControlLabel
+                      key={choice}
+                      value={choice}
+                      control={<Radio />}
+                      label={choice}
+                    />
+                  ))}
+                </RadioGroup>
+              ) : (
+                <Typography color="error">Invalid options for {contest}</Typography>
+              )}
+            </Paper>
           ))}
-        </div>
-      ))}
-
-      <TextField
-        label="Voter ID"
-        variant="outlined"
-        fullWidth
-        sx={{ mt: 3, mb: 3 }}
-        value={voterId}
-        onChange={(e) => setVoterId(e.target.value)}
-      />
-
-      <Button variant="contained" color="primary" onClick={handleSubmit} fullWidth>
-        Submit Votes
-      </Button>
-
-      {message && (
-        <Typography variant="subtitle1" color="error" align="center" sx={{ mt: 2 }}>
-          {message}
-        </Typography>
-      )}
-
-      {blockchain && (
-        <div style={{ marginTop: '20px' }}>
-          <Typography variant="h5" align="center">
-            Blockchain Data
-          </Typography>
-          <pre style={{ backgroundColor: '#f9f9f9', padding: '10px', overflowX: 'auto' }}>
-            {JSON.stringify(blockchain, null, 2)}
-          </pre>
-        </div>
+          <Button
+            variant="contained"
+            color="primary"
+            type="submit"
+            fullWidth
+            disabled={loading}
+          >
+            {loading ? "Submitting..." : "Submit Vote"}
+          </Button>
+        </form>
+      ) : (
+        <Typography>No election data available.</Typography>
       )}
     </Paper>
   );

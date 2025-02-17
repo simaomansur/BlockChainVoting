@@ -1,40 +1,40 @@
-// src/App.js
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import HomePage from './components/HomePage';
-import CreatePollPage from './components/CreatePollPage';
-import ExistingPollsPage from './components/ExistingPollsPage';
-import VotePage from './components/VotePage'
-import ElectionBallotPage from './components/ElectionBallotPage';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { AppBar, Toolbar, Typography, Button } from "@mui/material";
+import HomePage from "./components/HomePage";
+import CreatePollPage from "./components/CreatePollPage";
+import ExistingPollsPage from "./components/ExistingPollsPage";
+import VotePage from "./components/VotePage";
+import ElectionBallotPage from "./components/ElectionBallotPage";
 
-function App() {
+const App = () => {
   return (
-    <BrowserRouter>
+    <Router>
       <div>
-        {/* Optionally, a simple navigation bar */}
-        <nav>
-          <ul>
-            <li>
-              <Link to="/">Home</Link>
-            </li>
-            <li>
-              <Link to="/create">Create Poll</Link>
-            </li>
-            <li>
-              <Link to="/existing">Existing Polls</Link>
-            </li>
-          </ul>
-        </nav>
+        {/* Navigation Bar using Material UI */}
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              Blockchain Voting
+            </Typography>
+            <Button color="inherit" component={Link} to="/">Home</Button>
+            <Button color="inherit" component={Link} to="/create">Create Poll</Button>
+            <Button color="inherit" component={Link} to="/polls">View Polls</Button>
+            <Button color="inherit" component={Link} to="/election">Election Ballot</Button>
+          </Toolbar>
+        </AppBar>
+
+        {/* Page Routes */}
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/create" element={<CreatePollPage />} />
-          <Route path="/existing" element={<ExistingPollsPage />} />
-          <Route path="/ballot/:pollId" element={<ElectionBallotPage />} />
-          <Route path="/vote/:pollId" element={<VotePage />} />
+          <Route path="/polls" element={<ExistingPollsPage />} />
+          <Route path="/vote/:poll_id" element={<VotePage />} />
+          <Route path="/election" element={<ElectionBallotPage />} />
         </Routes>
       </div>
-    </BrowserRouter>
+    </Router>
   );
-}
+};
 
 export default App;

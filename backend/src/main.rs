@@ -1,18 +1,14 @@
 use warp::{Filter, cors};
 use std::sync::{Arc, Mutex};
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use serde_json::json;
 
-// Import the PollManager from your poll_manager module.
-use backend::poll_manager::{PollManager, PollInput};
+// Import your PollManager, PollInput, and Poll enum from poll_manager.rs.
+use backend::poll_manager::{PollManager, PollInput, Poll};
+// Import the election initializer function.
+mod election_initializer;
+use election_initializer::init_election_poll;
 
-//
-// Data Structures for API Input
-//
-
-/// Represents a vote submission, including the poll identifier.
-/// The candidate value must match one of the allowed options for the poll.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
     pub poll_id: String,
@@ -22,49 +18,25 @@ struct VoteInput {
 
 #[tokio::main]
 async fn main() {
-    // Create a PollManager instance wrapped in Arc/Mutex for thread-safe access.
+    // Create a PollManager instance wrapped in an Arc/Mutex for thread-safe access.
     let poll_manager = Arc::new(Mutex::new(PollManager::new()));
     
-    // Pre-seed the election poll once at server startup.
+    // Initialize the election poll separately (in its own module).
     {
         let mut pm = poll_manager.lock().unwrap();
-        if pm.get_poll("election").is_none() {
-            println!("Creating election poll...");
-            // Here we create a fake election poll.
-            // PollInput.options is defined as Vec<String>.
-            // For a multi-contest election, we use a single JSON string that encodes structured options.
-            let election_options = r#"{
-                "presidency": ["Candidate A", "Candidate B", "Candidate C"],
-                "congress": ["Party X", "Party Y"],
-                "judges": ["Judge 1", "Judge 2"],
-                "propositions": ["Yes", "No"]
-            }"#.to_string();
-            
-            let election_poll = PollInput {
-                poll_id: "election".to_string(),
-                title: "2024 Mock Election".to_string(),
-                question: "Vote for the following contests: presidency, congress, judges, and propositions".to_string(),
-                options: vec![election_options], // storing the structured options as one JSON string
-                is_public: true,
-            };
-            pm.create_poll(election_poll);
-        }
+        init_election_poll(&mut pm);
     }
 
-    // Set up your CORS filter.
+    // Set up CORS middleware.
     let cors = cors()
         .allow_any_origin()
         .allow_methods(vec!["GET", "POST", "OPTIONS"])
         .allow_headers(vec!["Content-Type"]);
 
-    // Set up a filter to clone poll_manager.
+    // Create a filter to pass the PollManager to each route.
     let pm_filter = warp::any().map(move || poll_manager.clone());
 
-    //
-    // API Endpoints
-    //
-
-    // POST /poll/create - Creates a new poll.
+    // POST /poll/create - Creates a new poll (for normal polls).
     let create_poll = warp::post()
         .and(warp::path("poll"))
         .and(warp::path("create"))
@@ -73,15 +45,17 @@ async fn main() {
         .map(|poll: PollInput, poll_manager: Arc<Mutex<PollManager>>| {
             let mut pm = poll_manager.lock().unwrap();
             pm.create_poll(poll.clone());
+            // For simplicity, store the poll metadata as a block.
             let poll_data = serde_json::to_string(&poll).unwrap();
             pm.add_vote(&poll.poll_id, poll_data).unwrap();
             warp::reply::json(&json!({
                 "status": "Poll created successfully",
                 "poll_id": poll.poll_id
             }))
-        }).with(cors.clone());
+        })
+        .with(cors.clone());
 
-    // POST /poll/vote - Casts a vote on a specific poll.
+    // POST /poll/vote - Casts a vote on a poll.
     let add_vote = warp::post()
         .and(warp::path("poll"))
         .and(warp::path("vote"))
@@ -89,112 +63,53 @@ async fn main() {
         .and(pm_filter.clone())
         .map(|vote: VoteInput, poll_manager: Arc<Mutex<PollManager>>| {
             let mut pm = poll_manager.lock().unwrap();
-
-            // 1) Check if poll exists.
-            let poll = match pm.get_poll(&vote.poll_id) {
-                Some(p) => p,
-                None => return warp::reply::json(&json!({ "error": "Poll not found" }))
-            };
-
-            // 2) Get the raw options string.
-            if poll.metadata.options.is_empty() {
-                return warp::reply::json(&json!({
-                    "error": "No options defined for this poll."
-                }));
+            if pm.get_poll(&vote.poll_id).is_none() {
+                return warp::reply::json(&json!({ "error": "Poll not found" }));
             }
-
-            let json_str = &poll.metadata.options[0];
-
-            // 3) Try to parse poll.options[0] as JSON.
-            let parsed_options: serde_json::Value = match serde_json::from_str(json_str) {
-                Ok(val) => val,
-                Err(_) => {
-                    // Fallback: treat poll.metadata.options as a plain array of strings.
-                    serde_json::Value::Array(
-                        poll.metadata.options.iter().map(|s| serde_json::Value::String(s.clone())).collect()
-                    )
-                }
+            
+            // For election polls, build a structured JSON vote; for normal polls, use a simple string.
+            let vote_transaction = if vote.poll_id == "election" {
+                serde_json::json!({
+                    "voter_id": vote.voter_id,
+                    "contest": "election", // Extend later for multiple contests.
+                    "candidate": vote.candidate
+                }).to_string()
+            } else {
+                format!("Voter: {} -> Candidate: {}", vote.voter_id, vote.candidate)
             };
 
-            // 4) Determine if we have a structured (object) or plain (array) options.
-            let (contest, candidate_str, valid_candidate) = {
-                // Expect vote.candidate in the format "contest: candidate"
-                let parts: Vec<&str> = vote.candidate.splitn(2, ": ").collect();
-                if parts.len() < 2 {
-                    return warp::reply::json(&json!({
-                        "error": "Invalid candidate format. Expect 'contest: candidate'."
-                    }));
-                }
-                let contest = parts[0];
-                let candidate_str = parts[1];
-
-                if parsed_options.is_object() {
-                    // Structured poll with multiple contests.
-                    let obj = parsed_options.as_object().unwrap();
-                    let arr = match obj.get(contest) {
-                        Some(val) if val.is_array() => val.as_array().unwrap(),
-                        _ => {
-                            return warp::reply::json(&json!({
-                                "error": format!("Contest '{}' not found.", contest)
-                            }));
-                        }
-                    };
-                    let valid = arr.iter().any(|v| v.as_str().map_or(false, |s| s == candidate_str));
-                    (contest, candidate_str, valid)
-                } else if parsed_options.is_array() {
-                    // Plain poll: use a default contest.
-                    let arr = parsed_options.as_array().unwrap();
-                    let valid = arr.iter().any(|v| v.as_str().map_or(false, |s| s == candidate_str));
-                    // For plain polls, force the contest key to "default"
-                    ("default", candidate_str, valid)
-                } else {
-                    return warp::reply::json(&json!({
-                        "error": "Poll options are not structured correctly."
-                    }));
-                }
-            };
-
-            if !valid_candidate {
-                return warp::reply::json(&json!({
-                    "error": format!("'{}' is not a valid candidate in contest '{}'.", candidate_str, contest)
-                }));
-            }
-
-            // 5) If valid, construct the transaction and add the vote.
-            // The transaction string is: "Voter: {voter_id} -> {contest}: {candidate_str}"
-            let transaction = format!("Voter: {} -> {}: {}", vote.voter_id, contest, candidate_str);
-            match pm.add_vote(&vote.poll_id, transaction) {
+            match pm.add_vote(&vote.poll_id, vote_transaction) {
                 Ok(_) => warp::reply::json(&json!({ "status": "Vote added successfully" })),
                 Err(e) => warp::reply::json(&json!({ "error": e })),
             }
         })
         .with(cors.clone());
 
-        // OPTIONS /poll/vote - Handle preflight CORS requests for voting.
-        let vote_options = warp::options()
+    // OPTIONS /poll/vote - Preflight handler for voting.
+    let vote_options = warp::options()
         .and(warp::path("poll"))
         .and(warp::path("vote"))
         .map(|| warp::reply())
         .with(cors.clone());
+    let vote_route = add_vote.or(vote_options);
 
-        // Combine POST and OPTIONS handlers.
-        let vote_route = add_vote.or(vote_options);
-
-
-    // GET /polls - Retrieves a list of all polls.
+    // GET /polls - Returns a list of all polls.
     let list_polls = warp::get()
         .and(warp::path!("polls"))
         .and(pm_filter.clone())
         .map(|poll_manager: Arc<Mutex<PollManager>>| {
             let pm = poll_manager.lock().unwrap();
-            let polls: Vec<_> = pm.polls.values()
-                .map(|poll| poll.metadata.clone())
-                .collect();
+            let polls: Vec<_> = pm.polls.values().map(|p| {
+                match p {
+                    Poll::Election { metadata, .. } => metadata.clone(),
+                    Poll::Normal { metadata, .. } => metadata.clone(),
+                }
+            }).collect();
             warp::reply::json(&polls)
         })
         .with(cors.clone());
 
-    // GET /poll/{poll_id}/blockchain - Retrieves the blockchain for a specific poll.
+    // GET /poll/{poll_id}/blockchain - Returns the blockchain for a poll.
     let get_blockchain = warp::get()
         .and(warp::path("poll"))
         .and(warp::path::param::<String>())
@@ -203,12 +118,51 @@ async fn main() {
         .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
             let pm = poll_manager.lock().unwrap();
             match pm.get_poll(&poll_id) {
-                Some(poll) => warp::reply::json(&poll.blockchain.chain),
+                Some(Poll::Election { blockchain, .. }) => warp::reply::json(&blockchain.chain),
+                Some(Poll::Normal { blockchain, .. }) => warp::reply::json(&blockchain.chain),
                 None => warp::reply::json(&json!({ "error": "Poll not found" })),
             }
-        }).with(cors.clone());
+        })
+        .with(cors.clone());
 
-    // GET /poll/{poll_id}/validity - Checks the validity of a poll's blockchain.
+    // GET /poll/{poll_id}/vote_counts - Returns vote counts.
+    let get_vote_counts = warp::get()
+        .and(warp::path("poll"))
+        .and(warp::path::param::<String>())
+        .and(warp::path("vote_counts"))
+        .and(pm_filter.clone())
+        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
+            let pm = poll_manager.lock().unwrap();
+            match pm.get_poll(&poll_id) {
+                Some(Poll::Election { blockchain, .. }) => {
+                    let counts = blockchain.get_vote_counts();
+                    warp::reply::json(&json!({ "vote_counts": counts }))
+                },
+                Some(Poll::Normal { blockchain, .. }) => {
+                    let counts = blockchain.get_vote_counts();
+                    warp::reply::json(&json!({ "vote_counts": counts }))
+                },
+                None => warp::reply::json(&json!({ "error": "Poll not found" }))
+            }
+        })
+        .with(cors.clone());
+
+    // GET /poll/{poll_id} - Returns poll metadata (details).
+    let get_poll_details = warp::get()
+        .and(warp::path("poll"))
+        .and(warp::path::param::<String>())
+        .and(pm_filter.clone())
+        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
+            let pm = poll_manager.lock().unwrap();
+            match pm.get_poll(&poll_id) {
+                Some(Poll::Election { metadata, .. }) => warp::reply::json(&metadata),
+                Some(Poll::Normal { metadata, .. }) => warp::reply::json(&metadata),
+                None => warp::reply::json(&json!({ "error": "Poll not found" })),
+            }
+        })
+        .with(cors.clone());
+
+    // GET /poll/{poll_id}/validity - Checks blockchain validity.
     let check_validity = warp::get()
         .and(warp::path("poll"))
         .and(warp::path::param::<String>())
@@ -217,49 +171,54 @@ async fn main() {
         .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
             let pm = poll_manager.lock().unwrap();
             match pm.get_poll(&poll_id) {
-                Some(poll) => {
-                    let response = json!({ "valid": poll.blockchain.is_valid() });
+                Some(Poll::Election { blockchain, .. }) => {
+                    let response = json!({ "valid": blockchain.is_valid() });
+                    warp::reply::json(&response)
+                },
+                Some(Poll::Normal { blockchain, .. }) => {
+                    let response = json!({ "valid": blockchain.is_valid() });
                     warp::reply::json(&response)
                 },
                 None => warp::reply::json(&json!({ "error": "Poll not found" })),
             }
-        }).with(cors.clone());
-
-    // GET /poll/{poll_id}/vote_counts - Returns vote counts for each candidate in a poll.
-    let get_vote_counts = warp::get()
-        .and(warp::path("poll"))
-        .and(warp::path::param::<String>())
-        .and(warp::path("vote_counts"))
-        .and(pm_filter.clone())
-        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
-            let pm = poll_manager.lock().unwrap();
-            if let Some(poll) = pm.get_poll(&poll_id) {
-                let mut vote_counts: HashMap<String, u32> = HashMap::new();
-                for block in &poll.blockchain.chain {
-                    if block.index <= 1 { continue; }
-                    if let Some((_, candidate)) = block.transactions.split_once("->") {
-                        let candidate = candidate.trim().to_string();
-                        *vote_counts.entry(candidate).or_insert(0) += 1;
-                    }
-                }
-                warp::reply::json(&json!({ "vote_counts": vote_counts }))
-            } else {
-                warp::reply::json(&json!({ "error": "Poll not found" }))
-            }
         })
         .with(cors.clone());
 
-    // GET /poll/{poll_id} - Returns the poll's metadata (details)
-    let get_poll_details = warp::get()
+    // GET /poll/{poll_id}/verify_vote/{voter_id} - Verifies a vote by voter_id.
+    let verify_vote = warp::get()
         .and(warp::path("poll"))
-        .and(warp::path::param::<String>())
+        .and(warp::path::param::<String>()) // poll_id
+        .and(warp::path("verify_vote"))
+        .and(warp::path::param::<String>()) // voter_id
         .and(pm_filter.clone())
-        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
+        .map(|poll_id: String, voter_id: String, poll_manager: Arc<Mutex<PollManager>>| {
             let pm = poll_manager.lock().unwrap();
-            if let Some(poll) = pm.get_poll(&poll_id) {
-                warp::reply::json(&poll.metadata)
-            } else {
-                warp::reply::json(&json!({ "error": "Poll not found" }))
+            match pm.get_poll(&poll_id) {
+                Some(Poll::Normal { blockchain, .. }) => {
+                    if let Some((block_index, vote_hash)) = blockchain.find_vote(&voter_id) {
+                        warp::reply::json(&json!({
+                            "verified": true,
+                            "block_index": block_index,
+                            "vote_hash": vote_hash,
+                            "timestamp": blockchain.chain[block_index as usize].timestamp
+                        }))
+                    } else {
+                        warp::reply::json(&json!({ "verified": false, "error": "Vote not found" }))
+                    }
+                },
+                Some(Poll::Election { blockchain, .. }) => {
+                    if let Some((block_index, vote_hash)) = blockchain.find_vote(&voter_id) {
+                        warp::reply::json(&json!({
+                            "verified": true,
+                            "block_index": block_index,
+                            "vote_hash": vote_hash,
+                            "timestamp": blockchain.chain[block_index as usize].timestamp
+                        }))
+                    } else {
+                        warp::reply::json(&json!({ "verified": false, "error": "Vote not found" }))
+                    }
+                },
+                None => warp::reply::json(&json!({ "error": "Poll not found" }))
             }
         })
         .with(cors.clone());
@@ -269,9 +228,10 @@ async fn main() {
         .or(vote_route)
         .or(list_polls)
         .or(get_blockchain)
-        .or(check_validity)
-        .or(get_vote_counts)
         .or(get_poll_details)
+        .or(get_vote_counts)
+        .or(check_validity)
+        .or(verify_vote)
         .with(cors);
 
     println!("🚀 API Server running on http://127.0.0.1:3030");

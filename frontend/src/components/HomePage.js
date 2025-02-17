@@ -1,33 +1,52 @@
-// src/components/HomePage.js
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Container, Box, Button, Typography, Grid } from "@mui/material";
 
 const HomePage = () => {
+  const navigate = useNavigate();
+
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Welcome to the Blockchain Voting App</h1>
-      <p>Please choose an option:</p>
-      <div>
-        <Link to="/create">
-          <button>Create a Poll</button>
-        </Link>
-      </div>
-      <div>
-        <Link to="/existing">
-          <button>Vote on an Existing Poll</button>
-        </Link>
-      </div>
-      <div>
-        <Link to="/vote">
-          <button>Vote Results</button>
-        </Link>
-      </div>
-      <div>
-        <Link to="/ballot/election">
-          <button>Unofficial Ballot</button>
-        </Link>
-      </div>
-    </div>
+    <Container maxWidth="sm">
+      <Box sx={{ textAlign: "center", mt: 8 }}>
+        <Typography variant="h3" gutterBottom>
+          Welcome to the Voting System
+        </Typography>
+        <Typography variant="subtitle1" sx={{ mb: 4 }}>
+          Choose an action below to get started.
+        </Typography>
+        <Grid container spacing={2} justifyContent="center">
+          <Grid item xs={12} sm={4}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate("/create")}
+            >
+              Create a Poll
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Button
+              variant="contained"
+              color="secondary"
+              fullWidth
+              onClick={() => navigate("/polls")}
+            >
+              View Polls
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={() => navigate("/results")}
+            >
+              Election Results
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+    </Container>
   );
 };
 

@@ -1,98 +1,147 @@
-// src/components/CreatePollPage.js
-import React, { useState, useContext } from 'react';
-import { createPoll } from '../api/api';
-import { TextField, Button, Typography, Paper, Grid } from '@mui/material';
-import ErrorSnackbar from './ErrorSnackbar';
-import { PollContext } from '../context/PollContext';
+import React, { useState } from "react";
+import { createPoll } from "../api/api";
+import {
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Grid,
+  Checkbox,
+  FormControlLabel,
+  Alert,
+} from "@mui/material";
 
 const CreatePollPage = () => {
-  const [pollId, setPollId] = useState('');
-  const [title, setTitle] = useState('');
-  const [question, setQuestion] = useState('');
-  const [options, setOptions] = useState('');
-  const { error, setError } = useContext(PollContext);
+  const [pollData, setPollData] = useState({
+    poll_id: "",
+    title: "",
+    question: "",
+    options: "",
+    is_public: true,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
-  const handleCreatePoll = async (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setPollData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (e) => {
+    setPollData((prev) => ({ ...prev, is_public: e.target.checked }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Convert comma-separated options into an array
-    const optionsArray = options.split(',').map((opt) => opt.trim());
-    const pollData = {
-      poll_id: pollId,
-      title,
-      question,
-      options: optionsArray,
-      is_public: true,
-    };
+
+    if (!pollData.poll_id || !pollData.title || !pollData.question || !pollData.options) {
+      setError("All fields are required.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
-      const response = await createPoll(pollData);
-      console.log('Poll created:', response.data);
-      alert('Poll created successfully');
-      // Optionally clear the form
-      setPollId('');
-      setTitle('');
-      setQuestion('');
-      setOptions('');
+      const formattedPollData = {
+        ...pollData,
+        options: pollData.options.split(",").map((opt) => opt.trim()),
+      };
+
+      await createPoll(formattedPollData);
+      setSuccess("Poll created successfully!");
+      // Optionally, reset the form:
+      setPollData({
+        poll_id: "",
+        title: "",
+        question: "",
+        options: "",
+        is_public: true,
+      });
     } catch (err) {
-      console.error('Error creating poll:', err);
-      setError('Error creating poll');
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCloseSnackbar = () => {
-    setError(null);
-  };
-
   return (
-    <Paper elevation={3} sx={{ padding: 4 }}>
-      <Typography variant="h5" gutterBottom>
+    <Paper elevation={3} sx={{ maxWidth: 600, margin: "auto", padding: 4, mt: 4 }}>
+      <Typography variant="h4" align="center" gutterBottom>
         Create a New Poll
       </Typography>
-      <form onSubmit={handleCreatePoll}>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+      <form onSubmit={handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <TextField
+              fullWidth
               label="Poll ID"
-              fullWidth
-              value={pollId}
-              onChange={(e) => setPollId(e.target.value)}
-              required
+              name="poll_id"
+              value={pollData.poll_id}
+              onChange={handleChange}
             />
           </Grid>
           <Grid item xs={12}>
             <TextField
-              label="Title"
               fullWidth
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
+              label="Poll Title"
+              name="title"
+              value={pollData.title}
+              onChange={handleChange}
             />
           </Grid>
           <Grid item xs={12}>
             <TextField
-              label="Question"
               fullWidth
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              required
+              multiline
+              rows={3}
+              label="Poll Question"
+              name="question"
+              value={pollData.question}
+              onChange={handleChange}
             />
           </Grid>
           <Grid item xs={12}>
             <TextField
+              fullWidth
               label="Options (comma-separated)"
-              fullWidth
-              value={options}
-              onChange={(e) => setOptions(e.target.value)}
-              required
+              name="options"
+              value={pollData.options}
+              onChange={handleChange}
             />
           </Grid>
           <Grid item xs={12}>
-            <Button type="submit" variant="contained" color="primary">
-              Create Poll
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={pollData.is_public}
+                  onChange={handleCheckboxChange}
+                  name="is_public"
+                  color="primary"
+                />
+              }
+              label="Public Poll"
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Create Poll"}
             </Button>
           </Grid>
         </Grid>
       </form>
-      <ErrorSnackbar error={error} onClose={handleCloseSnackbar} />
     </Paper>
   );
 };
