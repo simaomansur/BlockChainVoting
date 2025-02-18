@@ -12,7 +12,6 @@ pub struct Block {
 }
 
 impl Block {
-    /// Creates a new block with calculated hash
     pub fn new(index: u32, transactions: String, previous_hash: String) -> Self {
         let timestamp = Utc::now().timestamp();
         let hash = Self::calculate_hash(index, timestamp, &transactions, &previous_hash);
@@ -26,15 +25,15 @@ impl Block {
         }
     }
 
-    /// Calculates a SHA-256 hash of the block's contents
+    /// Calculates a SHA-256 hash for the block.
     pub fn calculate_hash(index: u32, timestamp: i64, transactions: &str, previous_hash: &str) -> String {
         let input = format!("{}{}{}{}", index, timestamp, transactions, previous_hash);
         let mut hasher = Sha256::new();
         hasher.update(input);
-        format!("{:x}", hasher.finalize()) // Convert to hexadecimal format
+        format!("{:x}", hasher.finalize())
     }
 
-    /// Verifies that the block's stored hash matches its calculated hash
+    /// Verifies that the stored hash matches the recalculated hash.
     pub fn verify_block_integrity(&self) -> bool {
         self.hash == Self::calculate_hash(
             self.index,

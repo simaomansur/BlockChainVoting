@@ -16,7 +16,6 @@ import {
   ListItem,
   ListItemText,
 } from "@mui/material";
-// Use the new Grid API from MUI.
 import Grid from "@mui/material/Grid2";
 
 const VotePage = () => {
@@ -67,7 +66,6 @@ const VotePage = () => {
       });
       setSuccess("Vote submitted successfully!");
 
-      // Fetch updated vote counts
       const counts = await getVoteCounts(poll_id);
       setVoteCounts(counts.vote_counts);
     } catch (err) {

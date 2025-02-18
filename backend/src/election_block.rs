@@ -7,16 +7,13 @@ use serde_json::Value;
 pub struct ElectionBlock {
     pub index: u32,
     pub timestamp: i64,
-    /// A single vote (or a complete ballot) stored as a JSON value.
     pub transactions: Value,
     pub previous_hash: String,
     pub hash: String,
 }
 
 impl ElectionBlock {
-    /// Creates a new ElectionBlock given an index, a vote transaction, and the previous block’s hash.
     pub fn new(index: u32, transactions: Value, previous_hash: String) -> Self {
-        // Use millisecond granularity for better timestamp precision.
         let timestamp = Utc::now().timestamp_millis();
         let hash = Self::calculate_hash(index, timestamp, &transactions, &previous_hash);
         ElectionBlock {
@@ -29,7 +26,6 @@ impl ElectionBlock {
     }
 
     /// Calculates a SHA-256 hash for the block using canonical (sorted-key) JSON serialization
-    /// if the transaction is a JSON object.
     pub fn calculate_hash(index: u32, timestamp: i64, transactions: &Value, previous_hash: &str) -> String {
         let transaction_str = if let Value::Object(map) = transactions {
             let mut pairs: Vec<(&String, &Value)> = map.iter().collect();

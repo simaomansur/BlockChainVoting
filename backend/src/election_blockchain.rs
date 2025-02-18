@@ -9,7 +9,6 @@ pub struct ElectionBlockchain {
 }
 
 impl ElectionBlockchain {
-    /// Creates a new ElectionBlockchain with a genesis block.
     pub fn new() -> Self {
         let genesis_block = ElectionBlock::new(0, json!("Genesis Block"), "0".to_string());
         ElectionBlockchain {
@@ -18,11 +17,9 @@ impl ElectionBlockchain {
     }
 
     /// Adds a vote by creating a new block for each vote.
-    /// IMPORTANT: The vote must be passed as a JSON object (not a JSON string).
     pub fn add_vote(&mut self, vote: Value) -> Result<(), String> {
         if let Some(last_block) = self.chain.last() {
             let new_block = ElectionBlock::new(last_block.index + 1, vote, last_block.hash.clone());
-            println!("Adding new block with index: {}", new_block.index);
             self.chain.push(new_block);
             Ok(())
         } else {
@@ -32,7 +29,6 @@ impl ElectionBlockchain {
 
     /// Validates the blockchain by checking each block's integrity and linkage.
     pub fn is_valid(&self) -> bool {
-        println!("Validating election blockchain with {} blocks...", self.chain.len());
         for i in 1..self.chain.len() {
             let current = &self.chain[i];
             let previous = &self.chain[i - 1];
@@ -51,13 +47,10 @@ impl ElectionBlockchain {
                 return false;
             }
         }
-        println!("Election blockchain is valid.");
         true
     }
 
-    /// Retrieves vote counts by iterating over blocks (skipping the genesis block).  
-    /// Expects each vote to be stored as a JSON object with a "candidate" field.  
-    /// If the "candidate" field is a string representing a nested JSON object, counts are aggregated by contest.
+    /// Returns a HashMap of vote counts for each contest and candidate.
     pub fn get_vote_counts(&self) -> HashMap<String, HashMap<String, u32>> {
         let mut category_counts: HashMap<String, HashMap<String, u32>> = HashMap::new();
     
@@ -100,7 +93,6 @@ impl ElectionBlockchain {
     }
     
     /// Searches the blockchain for a vote by a given voter ID.
-    /// Returns the block index and block hash if found.
     pub fn find_vote(&self, voter_id: &str) -> Option<(u32, String)> {
         for block in self.chain.iter().skip(1) {
             if let Some(vote_obj) = block.transactions.as_object() {

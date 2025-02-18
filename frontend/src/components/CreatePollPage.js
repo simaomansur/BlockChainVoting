@@ -52,7 +52,6 @@ const CreatePollPage = () => {
 
       await createPoll(formattedPollData);
       setSuccess("Poll created successfully!");
-      // Optionally, reset the form:
       setPollData({
         poll_id: "",
         title: "",

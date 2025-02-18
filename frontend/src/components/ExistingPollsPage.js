@@ -22,7 +22,6 @@ const ExistingPollsPage = () => {
     const fetchPolls = async () => {
       try {
         const data = await getExistingPolls();
-        // Filter out the poll with poll_id === "election"
         const filtered = data.filter((poll) => poll.poll_id !== "election");
         setPolls(filtered);
       } catch (err) {

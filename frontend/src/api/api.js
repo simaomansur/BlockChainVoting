@@ -16,18 +16,9 @@ export const createPoll = async (pollData) =>
   api.post("/poll/create", pollData).then(res => res.data);
 
 // Submit a vote. If voteData.candidate is an object, it is stringified.
-export const submitVote = async (voteData) => {
-  const candidateValue =
-    typeof voteData.candidate === "object"
-      ? JSON.stringify(voteData.candidate)
-      : voteData.candidate;
-  return api
-    .post("/poll/vote", {
-      ...voteData,
-      candidate: candidateValue,
-    })
-    .then(res => res.data);
-};
+export const submitVote = async (voteData) => {const candidateValue = typeof voteData.candidate === "object"
+      ? JSON.stringify(voteData.candidate): voteData.candidate;
+  return api.post("/poll/vote", {...voteData, candidate: candidateValue,}).then(res => res.data);};
 
 // Retrieve the blockchain for a specific poll.
 export const getBlockchain = async (pollId) =>

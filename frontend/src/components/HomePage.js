@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Box, Button, Typography, Grid } from "@mui/material";
+import { Container, Box, Button, Typography } from "@mui/material";
+import Grid from "@mui/material/Grid2";
 
 const HomePage = () => {
   const navigate = useNavigate();

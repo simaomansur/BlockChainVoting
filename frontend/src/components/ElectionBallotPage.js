@@ -30,8 +30,6 @@ const ElectionBallotPage = () => {
   const [loadingElection, setLoadingElection] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
-  // Extra states to display blockchain data, validity, and vote counts
   const [blockchain, setBlockchain] = useState(null);
   const [validity, setValidity] = useState(null);
   const [voteCounts, setVoteCounts] = useState(null);
@@ -43,7 +41,6 @@ const ElectionBallotPage = () => {
         if (!electionData || !electionData.options) {
           throw new Error("Election poll data is invalid or missing options.");
         }
-        // If your backend stores options as a single JSON string in an array, parse it:
         if (Array.isArray(electionData.options) && electionData.options.length > 0) {
           const parsed = JSON.parse(electionData.options[0]);
           setElection({ ...electionData, options: parsed });
@@ -76,7 +73,6 @@ const ElectionBallotPage = () => {
     setSuccess(null);
 
     try {
-      // Submit the entire ballot (multiple contests) as a JSON object
       await submitVote({
         poll_id: "election",
         voter_id: voterId,
@@ -84,7 +80,6 @@ const ElectionBallotPage = () => {
       });
       setSuccess("Election vote submitted successfully!");
 
-      // Optionally fetch updated vote counts after a vote
       await fetchBlockchainData();
     } catch (err) {
       setError("Error submitting election vote.");
@@ -93,7 +88,6 @@ const ElectionBallotPage = () => {
     }
   };
 
-  // A helper function to fetch blockchain data, validity, and vote counts
   const fetchBlockchainData = async () => {
     try {
       const chainData = await getBlockchain("election");
@@ -169,12 +163,10 @@ const ElectionBallotPage = () => {
         <Typography>No election data available.</Typography>
       )}
 
-      {/* Button to fetch or refresh the blockchain data */}
       <Button variant="outlined" onClick={fetchBlockchainData} fullWidth sx={{ mb: 2 }}>
         View Blockchain Details
       </Button>
 
-      {/* Display blockchain data */}
       {blockchain && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5">Blockchain Data</Typography>
@@ -192,7 +184,6 @@ const ElectionBallotPage = () => {
         </Box>
       )}
 
-      {/* Display blockchain validity */}
       {validity !== null && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h5">Blockchain Validity</Typography>
@@ -202,7 +193,6 @@ const ElectionBallotPage = () => {
         </Box>
       )}
 
-      {/* Display nested vote counts */}
       {voteCounts && Object.keys(voteCounts).length > 0 ? (
         <Box mt={3}>
           <Typography variant="h5" align="center">

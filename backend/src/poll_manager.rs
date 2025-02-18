@@ -12,8 +12,7 @@ pub struct PollInput {
     pub is_public: bool,
 }
 
-/// An enum representing a poll. The Normal variant uses a standard blockchain (one block per vote),
-/// while the Election variant uses an ElectionBlockchain where each vote creates a new block.
+/// Represents a poll, which can be a Normal poll or an Election poll.
 #[derive(Debug, Clone)]
 pub enum Poll {
     Normal {
@@ -39,8 +38,6 @@ impl PollManager {
     }
 
     /// Creates a new poll.
-    /// If the poll_id is "election", an Election poll is created using ElectionBlockchain.
-    /// Otherwise, a Normal poll is created.
     pub fn create_poll(&mut self, poll: PollInput) {
         if poll.poll_id == "election" {
             let blockchain = ElectionBlockchain::new();
@@ -54,8 +51,6 @@ impl PollManager {
     }
 
     /// Adds a vote to the specified poll.
-    /// For an Election poll, the vote_data is expected to be a JSON string (which is parsed)
-    /// and then used to create a new block (one block per vote). For a Normal poll, vote_data is added as a new block.
     pub fn add_vote(
         &mut self,
         poll_id: &str,

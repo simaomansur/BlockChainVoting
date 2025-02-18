@@ -1,7 +1,6 @@
 use backend::poll_manager::{PollManager, PollInput};
 
 pub fn init_election_poll(pm: &mut PollManager) {
-    // Check if an election poll already exists.
     if pm.get_poll("election").is_none() {
         println!("Creating election poll...");
         let election_options = r#"{

@@ -1,4 +1,3 @@
-// blockchain.rs
 use crate::block::Block;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
@@ -45,19 +44,14 @@ impl Blockchain {
     }
 
     /// Checks if a voter has already voted.
-    /// This function tries to find the voter by searching through the block transactions.
     pub fn has_voted(&self, voter_id: &str) -> bool {
         self.find_vote(voter_id).is_some()
     }
 
-    /// Searches for a vote by voter ID.
-    /// It first tries to parse the block's transactions as JSON (object or array) and looks for the "voter_id" field.
-    /// If JSON parsing fails, it falls back to a raw string search.
+    /// Finds a vote by searching through the block transactions.
     pub fn find_vote(&self, voter_id: &str) -> Option<(u32, String)> {
         for block in &self.chain {
-            // Try to parse the transactions as JSON.
             if let Ok(json) = serde_json::from_str::<Value>(&block.transactions) {
-                // If it's an array, iterate through each vote object.
                 if let Some(arr) = json.as_array() {
                     for vote in arr {
                         if let Some(vote_obj) = vote.as_object() {
@@ -77,7 +71,6 @@ impl Blockchain {
                     }
                 }
             } else {
-                // Fallback: treat the transactions as a plain string and check for the voter_id substring.
                 if block.transactions.contains(voter_id) {
                     return Some((block.index, block.hash.clone()));
                 }
@@ -97,17 +90,12 @@ impl Blockchain {
         })
     }
 
-    /// Retrieves vote counts by iterating over all blocks (skipping the genesis block).
-    /// This function tries to parse the transaction data as JSON to extract the "candidate" field.
-    /// If parsing fails, it falls back to extracting the candidate from a plain string.
+    /// Retrieves vote counts by iterating over blocks (skipping the genesis block).
     pub fn get_vote_counts(&self) -> HashMap<String, u32> {
         let mut vote_counts: HashMap<String, u32> = HashMap::new();
         for block in &self.chain {
-            if block.index == 0 { continue; } // Skip the genesis block
-            // Since block.transactions is a String, we can get a &str directly.
+            if block.index == 0 { continue; }
             let transaction_str = block.transactions.as_str();
-            println!("Parsing normal transaction from block {}: {}", block.index, transaction_str);
-            // Split the string to try to extract the candidate.
             let parts: Vec<&str> = transaction_str.split("-> Candidate:").collect();
             if parts.len() >= 2 {
                 let candidate = parts[1].trim();
