@@ -102,43 +102,24 @@ impl Blockchain {
     /// If parsing fails, it falls back to extracting the candidate from a plain string.
     pub fn get_vote_counts(&self) -> HashMap<String, u32> {
         let mut vote_counts: HashMap<String, u32> = HashMap::new();
-
         for block in &self.chain {
-            if block.index == 0 { continue; } // Skip genesis block
-
-            if let Ok(json) = serde_json::from_str::<Value>(&block.transactions) {
-                if let Some(arr) = json.as_array() {
-                    // Assume votes are stored as an array of objects.
-                    for vote in arr {
-                        if let Some(vote_obj) = vote.as_object() {
-                            if let Some(candidate_val) = vote_obj.get("candidate") {
-                                if let Some(candidate_str) = candidate_val.as_str() {
-                                    *vote_counts.entry(candidate_str.to_string()).or_insert(0) += 1;
-                                }
-                            }
-                        }
-                    }
-                } else if let Some(vote_obj) = json.as_object() {
-                    // A single vote object.
-                    if let Some(candidate_val) = vote_obj.get("candidate") {
-                        if let Some(candidate_str) = candidate_val.as_str() {
-                            *vote_counts.entry(candidate_str.to_string()).or_insert(0) += 1;
-                        }
-                    }
-                }
+            if block.index == 0 { continue; } // Skip the genesis block
+            // Since block.transactions is a String, we can get a &str directly.
+            let transaction_str = block.transactions.as_str();
+            println!("Parsing normal transaction from block {}: {}", block.index, transaction_str);
+            // Split the string to try to extract the candidate.
+            let parts: Vec<&str> = transaction_str.split("-> Candidate:").collect();
+            if parts.len() >= 2 {
+                let candidate = parts[1].trim();
+                *vote_counts.entry(candidate.to_string()).or_insert(0) += 1;
             } else {
-                // Fallback for plain string transactions (expected format: "Voter: {} -> Candidate: {}")
-                let parts: Vec<&str> = block.transactions.split("-> Candidate:").collect();
-                if parts.len() >= 2 {
-                    let candidate = parts[1].trim();
-                    *vote_counts.entry(candidate.to_string()).or_insert(0) += 1;
-                }
+                println!("Block {} transaction not in expected format.", block.index);
             }
         }
-
         vote_counts
     }
 }
+    
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VoteReceipt {

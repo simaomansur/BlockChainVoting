@@ -11,12 +11,13 @@ import {
   Button,
   Alert,
   CircularProgress,
+  Box,
   List,
   ListItem,
   ListItemText,
-  Grid,
-  Box,
 } from "@mui/material";
+// Use the new Grid API from MUI.
+import Grid from "@mui/material/Grid2";
 
 const VotePage = () => {
   const { poll_id } = useParams();
@@ -101,16 +102,16 @@ const VotePage = () => {
 
       {poll && poll.options && (
         <form onSubmit={handleVoteSubmit}>
-          < container spacing={2}>
-            < item xs={12}>
+          <Grid container spacing={2}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 label="Enter Voter ID"
                 value={voterId}
                 onChange={(e) => setVoterId(e.target.value)}
               />
-            </item>
-            <item xs={12}>
+            </Grid>
+            <Grid xs={12}>
               <Typography variant="h6" gutterBottom>
                 {poll.question}
               </Typography>
@@ -127,8 +128,8 @@ const VotePage = () => {
                   />
                 ))}
               </RadioGroup>
-            </item>
-            <item xs={12}>
+            </Grid>
+            <Grid xs={12}>
               <Button
                 fullWidth
                 type="submit"
@@ -138,8 +139,8 @@ const VotePage = () => {
               >
                 {loading ? "Submitting..." : "Submit Vote"}
               </Button>
-            </item>
-          </container>
+            </Grid>
+          </Grid>
         </form>
       )}
       {voteCounts && Object.keys(voteCounts).length > 0 ? (

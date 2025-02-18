@@ -63,7 +63,6 @@ async fn main() {
             if pm.get_poll(&vote.poll_id).is_none() {
                 return warp::reply::json(&json!({ "error": "Poll not found" }));
             }
-            
             // For election polls, parse the candidate field into an object and merge in voter_id.
             let vote_transaction = if vote.poll_id == "election" {
                 // Expect vote.candidate to be a JSON string representing an object.
@@ -141,16 +140,20 @@ async fn main() {
             match pm.get_poll(&poll_id) {
                 Some(Poll::Election { blockchain, .. }) => {
                     let counts = blockchain.get_vote_counts();
+                    println!("Election vote counts for {}: {:?}", poll_id, counts);
                     warp::reply::json(&json!({ "vote_counts": counts }))
                 },
                 Some(Poll::Normal { blockchain, .. }) => {
+                    // For normal polls, get_vote_counts returns a flat map under "default".
                     let counts = blockchain.get_vote_counts();
+                    println!("Normal vote counts for {}: {:?}", poll_id, counts);
                     warp::reply::json(&json!({ "vote_counts": counts }))
                 },
                 None => warp::reply::json(&json!({ "error": "Poll not found" }))
             }
         })
         .with(cors.clone());
+
 
     // GET /poll/{poll_id}/validity - Checks the validity of a poll's blockchain.
     let check_validity = warp::get()
@@ -178,10 +181,11 @@ async fn main() {
         })
         .with(cors.clone());    
 
-    // GET /poll/{poll_id} - Returns poll metadata (details).
+    // GET /poll/{poll_id}/details - Returns poll metadata (details).
     let get_poll_details = warp::get()
         .and(warp::path("poll"))
         .and(warp::path::param::<String>())
+        .and(warp::path("details"))
         .and(pm_filter.clone())
         .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
             let pm = poll_manager.lock().unwrap();

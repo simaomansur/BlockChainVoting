@@ -43,7 +43,7 @@ export const getVoteVerification = async (pollId, voterId) =>
 
 // Retrieve poll details (metadata) for a specific poll.
 export const getPollDetails = async (pollId) =>
-  api.get(`/poll/${pollId}`).then(res => res.data);
+  api.get(`/poll/${pollId}/details`).then(res => res.data);
 
 // Validate the blockchain for a specific poll.
 export const checkValidity = async (pollId) =>
