@@ -64,15 +64,23 @@ async fn main() {
                 return warp::reply::json(&json!({ "error": "Poll not found" }));
             }
             
-            // For election polls, build a structured JSON vote; for normal polls, use a simple string.
+            // For election polls, parse the candidate field into an object and merge in voter_id.
             let vote_transaction = if vote.poll_id == "election" {
-                serde_json::json!({
-                    "voter_id": vote.voter_id,
-                    "contest": "election", // Extend later for multiple contests.
-                    "candidate": vote.candidate
-                }).to_string()
+                // Expect vote.candidate to be a JSON string representing an object.
+                let candidate_value: serde_json::Value = serde_json::from_str(&vote.candidate)
+                    .unwrap_or_else(|_| serde_json::json!({}));
+                let mut vote_obj = serde_json::Map::new();
+                vote_obj.insert("voter_id".to_string(), serde_json::Value::String(vote.voter_id.clone()));
+                // Merge the parsed candidate fields into the top-level object.
+                if let serde_json::Value::Object(map) = candidate_value {
+                    for (k, v) in map {
+                        vote_obj.insert(k, v);
+                    }
+                }
+                serde_json::Value::Object(vote_obj)
             } else {
-                format!("Voter: {} -> Candidate: {}", vote.voter_id, vote.candidate)
+                // For normal polls, keep the plain string.
+                serde_json::Value::String(format!("Voter: {} -> Candidate: {}", vote.voter_id, vote.candidate))
             };
 
             match pm.add_vote(&vote.poll_id, vote_transaction) {
@@ -144,6 +152,32 @@ async fn main() {
         })
         .with(cors.clone());
 
+    // GET /poll/{poll_id}/validity - Checks the validity of a poll's blockchain.
+    let check_validity = warp::get()
+        .and(warp::path("poll"))
+        .and(warp::path::param::<String>())
+        .and(warp::path("validity"))
+        .and(pm_filter.clone())
+        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
+            println!("** Checking validity for poll_id = {}", poll_id);
+    
+            let pm = poll_manager.lock().unwrap();
+            match pm.get_poll(&poll_id) {
+                Some(Poll::Election { blockchain, .. }) => {
+                    let valid = blockchain.is_valid();
+                    println!("** is_valid() returned: {}", valid);
+                    warp::reply::json(&json!({ "valid": valid }))
+                },
+                Some(Poll::Normal { blockchain, .. }) => {
+                    let valid = blockchain.is_valid();
+                    println!("** is_valid() returned: {}", valid);
+                    warp::reply::json(&json!({ "valid": valid }))
+                },
+                None => warp::reply::json(&json!({ "error": "Poll not found" })),
+            }
+        })
+        .with(cors.clone());    
+
     // GET /poll/{poll_id} - Returns poll metadata (details).
     let get_poll_details = warp::get()
         .and(warp::path("poll"))
@@ -154,28 +188,6 @@ async fn main() {
             match pm.get_poll(&poll_id) {
                 Some(Poll::Election { metadata, .. }) => warp::reply::json(&metadata),
                 Some(Poll::Normal { metadata, .. }) => warp::reply::json(&metadata),
-                None => warp::reply::json(&json!({ "error": "Poll not found" })),
-            }
-        })
-        .with(cors.clone());
-
-    // GET /poll/{poll_id}/validity - Checks blockchain validity.
-    let check_validity = warp::get()
-        .and(warp::path("poll"))
-        .and(warp::path::param::<String>())
-        .and(warp::path("validity"))
-        .and(pm_filter.clone())
-        .map(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| {
-            let pm = poll_manager.lock().unwrap();
-            match pm.get_poll(&poll_id) {
-                Some(Poll::Election { blockchain, .. }) => {
-                    let response = json!({ "valid": blockchain.is_valid() });
-                    warp::reply::json(&response)
-                },
-                Some(Poll::Normal { blockchain, .. }) => {
-                    let response = json!({ "valid": blockchain.is_valid() });
-                    warp::reply::json(&response)
-                },
                 None => warp::reply::json(&json!({ "error": "Poll not found" })),
             }
         })
@@ -226,9 +238,9 @@ async fn main() {
         .or(list_polls)
         .or(get_blockchain)
         .or(get_vote_counts)
-        .or(get_poll_details)
         .or(check_validity)
         .or(verify_vote)
+        .or(get_poll_details)
         .with(cors);
 
     println!("🚀 API Server running on http://127.0.0.1:3030");

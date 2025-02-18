@@ -56,17 +56,18 @@ impl PollManager {
     /// Adds a vote to the specified poll.
     /// For an Election poll, the vote_data is expected to be a JSON string (which is parsed)
     /// and then used to create a new block (one block per vote). For a Normal poll, vote_data is added as a new block.
-    pub fn add_vote(&mut self, poll_id: &str, vote_data: String) -> Result<(), String> {
+    pub fn add_vote(&mut self, poll_id: &str, vote_data: serde_json::Value) -> Result<(), String> {
         if let Some(poll) = self.polls.get_mut(poll_id) {
             match poll {
                 Poll::Election { blockchain, .. } => {
-                    // Parse the vote data as JSON.
-                    let vote_json: serde_json::Value = serde_json::from_str(&vote_data)
-                        .map_err(|e| format!("Vote JSON parse error: {}", e))?;
-                    blockchain.add_vote(vote_json)
+                    // For election polls, vote_data is already a JSON value.
+                    blockchain.add_vote(vote_data)
                 },
                 Poll::Normal { blockchain, .. } => {
-                    blockchain.add_block(vote_data);
+                    // For normal polls, convert the JSON value to string.
+                    let vote_str = serde_json::to_string(&vote_data)
+                        .map_err(|e| format!("Serialization error: {}", e))?;
+                    blockchain.add_block(vote_str);
                     Ok(())
                 }
             }
@@ -74,6 +75,7 @@ impl PollManager {
             Err(format!("Poll '{}' does not exist", poll_id))
         }
     }
+      
 
     /// Retrieves a poll by poll_id.
     pub fn get_poll(&self, poll_id: &str) -> Option<&Poll> {

@@ -45,4 +45,8 @@ export const getVoteVerification = async (pollId, voterId) =>
 export const getPollDetails = async (pollId) =>
   api.get(`/poll/${pollId}`).then(res => res.data);
 
+// Validate the blockchain for a specific poll.
+export const checkValidity = async (pollId) =>
+  api.get(`/poll/${pollId}/validity`).then(res => res.data);
+
 export default api;
