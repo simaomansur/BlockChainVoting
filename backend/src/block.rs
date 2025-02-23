@@ -9,6 +9,7 @@ pub struct Block {
     pub transactions: String,
     pub previous_hash: String,
     pub hash: String,
+    pub merkle_tree MerkleTree,
 }
 
 impl Block {
@@ -16,13 +17,35 @@ impl Block {
         let timestamp = Utc::now().timestamp();
         let hash = Self::calculate_hash(index, timestamp, &transactions, &previous_hash);
 
+        let mut merkle_tree = MerkleTree::new();
+
+        merkle_tree.add_node(transactions.as_bytes().to_vec());
+
         Block {
             index,
             timestamp,
             transactions,
             previous_hash,
             hash,
+            merkle_tree,
         }
+    }
+
+    pub fn add_transaction(&mut self, transactions: String){
+        self.transactions.push_str(&transactions);
+
+        self.merkle_tree.add_node(transactions.as_bytes().to_vec());
+
+        self.hash = Self::calculate_hash(
+            self.index, 
+            self.timestamp,
+            &self.transactions,
+            &self.previous_hash,
+        )
+    }
+
+    pub fn merkle_root(&self) -> Option<Vec<u8>> {
+        self.merkle_tree.root_hash().cloned()
     }
 
     /// Calculates a SHA-256 hash for the block.
