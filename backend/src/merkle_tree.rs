@@ -1,12 +1,12 @@
 use sha2::{Sha256, Digest};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]  // Added Clone and Default
 pub struct MerkleTree {
     leaves: Vec<MerkleNode>,
     root: Option<MerkleNode>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone)]  // MerkleNode already had Clone
 pub struct MerkleNode {
     hash: Vec<u8>,
     left: Option<Box<MerkleNode>>,
