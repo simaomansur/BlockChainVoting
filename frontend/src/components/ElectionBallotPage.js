@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Paper,
   Typography,
-  TextField,
   RadioGroup,
   FormControlLabel,
   Radio,
@@ -24,7 +23,6 @@ import {
 
 const ElectionBallotPage = () => {
   const [election, setElection] = useState(null);
-  const [voterId, setVoterId] = useState("");
   const [selectedVotes, setSelectedVotes] = useState({});
   const [loading, setLoading] = useState(false);
   const [loadingElection, setLoadingElection] = useState(true);
@@ -63,8 +61,10 @@ const ElectionBallotPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!voterId || Object.keys(selectedVotes).length === 0) {
-      setError("Please enter your voter ID and select your choices.");
+    // Retrieve the voter ID from localStorage.
+    const storedVoterId = localStorage.getItem("voterId");
+    if (!storedVoterId || Object.keys(selectedVotes).length === 0) {
+      setError("Your voter ID is missing or you have not selected any choices.");
       return;
     }
 
@@ -75,11 +75,10 @@ const ElectionBallotPage = () => {
     try {
       await submitVote({
         poll_id: "election",
-        voter_id: voterId,
+        voter_id: storedVoterId,
         candidate: JSON.stringify(selectedVotes),
       });
       setSuccess("Election vote submitted successfully!");
-
       await fetchBlockchainData();
     } catch (err) {
       setError("Error submitting election vote.");
@@ -116,13 +115,10 @@ const ElectionBallotPage = () => {
         </Box>
       ) : election ? (
         <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Enter Voter ID"
-            value={voterId}
-            onChange={(e) => setVoterId(e.target.value)}
-            sx={{ mb: 3 }}
-          />
+          {/* Display the voter ID as read-only */}
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Voter ID: {localStorage.getItem("voterId") || "Not assigned"}
+          </Typography>
           {Object.keys(election.options).map((contest) => (
             <Box key={contest} sx={{ mb: 2, p: 2, border: "1px solid #ccc" }}>
               <Typography variant="h6" gutterBottom>
