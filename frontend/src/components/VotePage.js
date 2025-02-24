@@ -8,6 +8,7 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  Grid,
   Button,
   Alert,
   CircularProgress,
@@ -16,7 +17,6 @@ import {
   ListItem,
   ListItemText,
 } from "@mui/material";
-import Grid from "@mui/material/Grid2";
 
 const VotePage = () => {
   const { poll_id } = useParams();
@@ -28,6 +28,16 @@ const VotePage = () => {
   const [loadingPoll, setLoadingPoll] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+
+  // On mount, load the voter ID from localStorage.
+  useEffect(() => {
+    const storedVoterId = localStorage.getItem("voterId");
+    if (storedVoterId) {
+      setVoterId(storedVoterId);
+    } else {
+      setError("No voter ID found. Please log in.");
+    }
+  }, []);
 
   useEffect(() => {
     const fetchPollDetails = async () => {
@@ -49,8 +59,9 @@ const VotePage = () => {
 
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
+    // Since voterId is preloaded, we just check that it exists and a choice is selected.
     if (!selectedChoice || !voterId) {
-      setError("Please enter your voter ID and select a choice.");
+      setError("Your voter ID is missing or no choice selected.");
       return;
     }
 
@@ -101,15 +112,15 @@ const VotePage = () => {
       {poll && poll.options && (
         <form onSubmit={handleVoteSubmit}>
           <Grid container spacing={2}>
-            <Grid xs={12}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Enter Voter ID"
+                label="Voter ID"
                 value={voterId}
-                onChange={(e) => setVoterId(e.target.value)}
+                disabled
               />
             </Grid>
-            <Grid xs={12}>
+            <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
                 {poll.question}
               </Typography>
@@ -127,7 +138,7 @@ const VotePage = () => {
                 ))}
               </RadioGroup>
             </Grid>
-            <Grid xs={12}>
+            <Grid item xs={12}>
               <Button
                 fullWidth
                 type="submit"
@@ -141,6 +152,7 @@ const VotePage = () => {
           </Grid>
         </form>
       )}
+
       {voteCounts && Object.keys(voteCounts).length > 0 ? (
         <Box mt={4}>
           <Typography variant="h5" align="center">

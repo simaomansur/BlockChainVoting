@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPoll } from "../api/api";
 import {
   TextField,
   Button,
   Typography,
-  Paper,
   Grid,
+  Paper,
   Checkbox,
   FormControlLabel,
   Alert,
@@ -13,30 +13,50 @@ import {
 
 const CreatePollPage = () => {
   const [pollData, setPollData] = useState({
-    poll_id: "",
+    poll_id: "", // Optionally auto-generate or allow input
     title: "",
     question: "",
     options: "",
     is_public: true,
   });
+  const [voterId, setVoterId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  // On mount, load the voter ID from localStorage.
+  useEffect(() => {
+    const storedVoterId = localStorage.getItem("voterId");
+    if (storedVoterId) {
+      setVoterId(storedVoterId);
+    } else {
+      setError("No voter ID found. Please log in first.");
+      // Optionally, you could redirect the user to the login page here.
+    }
+  }, []);
+
+  // Handle text field changes.
   const handleChange = (e) => {
     const { name, value } = e.target;
     setPollData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Handle the checkbox change.
   const handleCheckboxChange = (e) => {
     setPollData((prev) => ({ ...prev, is_public: e.target.checked }));
   };
 
+  // Handle form submission.
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Ensure all fields are filled in.
     if (!pollData.poll_id || !pollData.title || !pollData.question || !pollData.options) {
       setError("All fields are required.");
+      return;
+    }
+    if (!voterId) {
+      setError("Voter ID is missing. Please log in.");
       return;
     }
 
@@ -45,6 +65,7 @@ const CreatePollPage = () => {
     setSuccess(null);
 
     try {
+      // Format the options from a comma-separated string to an array.
       const formattedPollData = {
         ...pollData,
         options: pollData.options.split(",").map((opt) => opt.trim()),
@@ -52,6 +73,7 @@ const CreatePollPage = () => {
 
       await createPoll(formattedPollData);
       setSuccess("Poll created successfully!");
+      // Clear the form (poll_id might be auto-generated in a future revision).
       setPollData({
         poll_id: "",
         title: "",
@@ -77,6 +99,15 @@ const CreatePollPage = () => {
 
       <form onSubmit={handleSubmit}>
         <Grid container spacing={2}>
+          <Grid item xs={12}>
+            {/* Display the voter ID from localStorage */}
+            <TextField
+              fullWidth
+              label="Voter ID"
+              value={voterId}
+              disabled
+            />
+          </Grid>
           <Grid item xs={12}>
             <TextField
               fullWidth
