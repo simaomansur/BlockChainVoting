@@ -5,6 +5,9 @@ use serde_json::json;
 use backend::poll_manager::{PollManager, PollInput, Poll};
 mod election_initializer;
 use election_initializer::init_election_poll;
+use sqlx::migrate::Migrator;
+use dotenv::dotenv;
+mod db;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
@@ -13,8 +16,15 @@ struct VoteInput {
     pub candidate: String,
 }
 
+static MIGRATOR: Migrator = sqlx::migrate!();
+
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+    let pool = db::create_db_pool().await;
+    MIGRATOR.run(&pool).await.expect("Failed to run migrations");
+
+
     let poll_manager = Arc::new(Mutex::new(PollManager::new()));
     
     // Initialize the election poll separately (in its own module).

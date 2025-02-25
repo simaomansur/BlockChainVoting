@@ -10,6 +10,20 @@ services:
       - ./backend:/backend
     environment:
       - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@db:5432/mydatabase
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
 
   frontend:
     build:
@@ -28,3 +42,6 @@ services:
     volumes:
       - ./:/project
     command: ["cargo", "test", "--manifest-path", "backend/Cargo.toml", "--test", "backend_tests"]
+
+volumes:
+  db_data:
