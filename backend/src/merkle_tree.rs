@@ -6,6 +6,16 @@ pub struct MerkleTree {
     root: Option<MerkleNode>,
 }
 
+impl MerkleNode {
+    pub fn left(&self) -> Option<&Box<MerkleNode>> {
+        self.left.as_ref()
+    }
+
+    pub fn right(&self) -> Option<&Box<MerkleNode>> {
+        self.right.as_ref()
+    }
+}
+
 #[derive(Debug, Clone)]  // MerkleNode already had Clone
 pub struct MerkleNode {
     hash: Vec<u8>,

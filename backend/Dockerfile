@@ -1,7 +1,7 @@
 # backend/Dockerfile
 
 # Stage 1: Build the application with Rust 1.81-slim and required dependencies
-FROM rust:1.81-slim as builder
+FROM rust:1.81-slim AS builder
 
 # Install pkg-config and OpenSSL development libraries
 RUN apt-get update && apt-get install -y \

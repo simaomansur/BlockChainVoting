@@ -1,5 +1,5 @@
 # Stage 1: Build the React app using a slim Node image
-FROM node:16-slim as builder
+FROM node:16-slim AS builder
 
 # Set the working directory
 WORKDIR /app
