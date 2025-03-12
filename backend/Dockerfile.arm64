@@ -1,0 +1,43 @@
+FROM rust:slim as builder
+
+WORKDIR /build
+RUN apt-get update && \
+    apt-get install -y libpq-dev pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set environment variable for SQLx to work in offline mode
+ENV SQLX_OFFLINE=true
+
+# Copy the Cargo files
+COPY Cargo.toml ./Cargo.toml
+
+# Copy source code and migrations
+COPY src/ ./src/
+COPY migrations/ ./migrations/
+
+# Build the application with ARM64 target
+RUN rustup target add aarch64-unknown-linux-musl
+RUN apt-get update && apt-get install -y musl-tools
+RUN cargo build --release --target=aarch64-unknown-linux-musl
+
+# Use Alpine as a base image
+FROM arm64v8/alpine:latest
+
+# Install required packages
+RUN apk add --no-cache libpq
+
+WORKDIR /backend
+
+# Copy the static binary from builder
+COPY --from=builder /build/target/aarch64-unknown-linux-musl/release/backend /backend/backend
+# Copy migrations
+COPY --from=builder /build/migrations /backend/migrations
+
+# Make binary executable
+RUN chmod +x /backend/backend
+
+# Expose the port
+EXPOSE 3030
+
+# Run the binary
+CMD ["/backend/backend"]

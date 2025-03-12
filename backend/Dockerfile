@@ -1,36 +1,49 @@
-# backend/Dockerfile
+FROM rust:slim as builder
 
-# Stage 1: Build the application with Rust 1.81-slim and required dependencies
-FROM rust:1.81-slim AS builder
+WORKDIR /build
+RUN apt-get update && \
+    apt-get install -y libpq-dev pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install pkg-config and OpenSSL development libraries
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
- && rm -rf /var/lib/apt/lists/*
+# Set environment variable for SQLx to work in offline mode
+ENV SQLX_OFFLINE=true
 
-WORKDIR /app
+# Copy the Cargo files
+COPY Cargo.toml ./Cargo.toml
 
-# Copy the entire backend source code to the container
-COPY . .
+# Copy source code and migrations
+COPY src/ ./src/
+COPY migrations/ ./migrations/
 
-# Build the application in release mode
+# List current directory to debug
+RUN ls -la
+
+# Build the application
 RUN cargo build --release
 
-# Stage 2: Create a minimal runtime image using Debian Bookworm Slim
+# Our final base
 FROM debian:bookworm-slim
 
-# Install runtime OpenSSL libraries. In Bookworm, use libssl3.
-RUN apt-get update && apt-get install -y \
-    libssl3 \
-    ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# Set environment variable to indicate Docker environment
+ENV DOCKER_ENVIRONMENT=true
 
-# Copy the built binary from the builder stage.
-COPY --from=builder /app/target/release/backend /usr/local/bin/backend
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y libpq5 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Expose the port the backend listens on
+WORKDIR /backend
+
+# Copy the binary from builder
+COPY --from=builder /build/target/release/backend /backend/backend
+# Copy migrations
+COPY --from=builder /build/migrations /backend/migrations
+
+# Make binary executable
+RUN chmod +x /backend/backend
+
+# Expose the port
 EXPOSE 3030
 
-# Run the binary when the container starts
-CMD ["backend"]
+# Run the binary
+CMD ["/backend/backend"]
