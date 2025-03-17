@@ -37,5 +37,21 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
 
+  backend_test:
+    image: "rust:latest"
+    working_dir: /project
+    volumes:
+      - ./:/project
+    command: ["cargo", "test", "--manifest-path", "backend/Cargo.toml", "--test", "backend_tests"]
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - SWAGGER_JSON=/spec/openapi.yaml
+    volumes:
+      - ./openapi:/spec
+
 volumes:
   db_data:
