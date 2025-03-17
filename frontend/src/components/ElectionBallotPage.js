@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Paper,
   Typography,
@@ -15,13 +15,15 @@ import {
 } from "@mui/material";
 import {
   getPollDetails,
-  submitVote,
+  castVote,
   getBlockchain,
   checkValidity,
   getVoteCounts,
 } from "../api/api";
+import { VoterContext } from "../context/VoterContext";
 
 const ElectionBallotPage = () => {
+  const { voter } = useContext(VoterContext);
   const [election, setElection] = useState(null);
   const [selectedVotes, setSelectedVotes] = useState({});
   const [loading, setLoading] = useState(false);
@@ -61,9 +63,8 @@ const ElectionBallotPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Retrieve the voter ID from localStorage.
-    const storedVoterId = localStorage.getItem("voterId");
-    if (!storedVoterId || Object.keys(selectedVotes).length === 0) {
+    
+    if (!voter || !voter.voterId || Object.keys(selectedVotes).length === 0) {
       setError("Your voter ID is missing or you have not selected any choices.");
       return;
     }
@@ -73,10 +74,10 @@ const ElectionBallotPage = () => {
     setSuccess(null);
 
     try {
-      await submitVote({
+      await castVote({
         poll_id: "election",
-        voter_id: storedVoterId,
-        candidate: JSON.stringify(selectedVotes),
+        voter_id: voter.voterId,
+        vote: selectedVotes, // Changed from 'candidate' to 'vote'
       });
       setSuccess("Election vote submitted successfully!");
       await fetchBlockchainData();
@@ -115,9 +116,9 @@ const ElectionBallotPage = () => {
         </Box>
       ) : election ? (
         <form onSubmit={handleSubmit}>
-          {/* Display the voter ID as read-only */}
+          {/* Display the voter ID */}
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Voter ID: {localStorage.getItem("voterId") || "Not assigned"}
+            Voter ID: {voter?.voterId || "Not assigned"}
           </Typography>
           {Object.keys(election.options).map((contest) => (
             <Box key={contest} sx={{ mb: 2, p: 2, border: "1px solid #ccc" }}>

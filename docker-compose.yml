@@ -1,28 +1,30 @@
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "3030:3030"
-    volumes:
-      - ./backend:/backend
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@db:5432/mydatabase
-    depends_on:
-      - db
+version: '3.8'
 
+services:
   db:
-    image: postgres:14
+    image: postgres:15
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydatabase
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=my_database
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ${DOCKERFILE:-Dockerfile}  # Use DOCKERFILE env if set, else default to Dockerfile
+    platform: ${DOCKER_PLATFORM:-linux/amd64}  # Default to amd64, override if needed
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://username:password@db:5432/my_database
+      - SQLX_OFFLINE=true
+    ports:
+      - "3030:3030"
+    depends_on:
+      - db
 
   frontend:
     build:

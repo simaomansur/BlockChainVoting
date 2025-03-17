@@ -1,117 +1,84 @@
-use crate::block::Block;
 use serde::{Serialize, Deserialize};
+use serde_json::{json, Value};
 use std::collections::HashMap;
-use serde_json::Value;
+use crate::block::Block;
+use sqlx::postgres::PgRow;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Blockchain {
     pub chain: Vec<Block>,
 }
 
 impl Blockchain {
+    /// Creates a new blockchain with a genesis block.
     pub fn new() -> Self {
-        let genesis_block = Block::new(0, "Genesis Block".to_string(), "0".to_string());
+        let genesis_block = Block::new(0, json!("Genesis Block"), "0".to_string());
         Blockchain {
             chain: vec![genesis_block],
         }
     }
 
-    /// Adds a new block to the blockchain with the provided transaction string.
-    pub fn add_block(&mut self, transactions: String) {
+    /// Reconstructs a blockchain from a vector of database rows.
+    /// Assumes each row corresponds to a block in the "blocks" table.
+    pub fn from_db_rows(rows: Vec<PgRow>) -> Result<Self, sqlx::Error> {
+        let mut chain = Vec::new();
+        for row in rows {
+            let block = Block::from_db_row(&row)?;
+            chain.push(block);
+        }
+        Ok(Blockchain { chain })
+    }
+
+    /// Adds a new block with a single transaction to the chain.
+    pub fn add_block(&mut self, transaction: Value) {
         let previous_block = self.chain.last().unwrap();
-        let new_block = Block::new(
-            previous_block.index + 1,
-            transactions,
-            previous_block.hash.clone(),
-        );
+        let new_block = Block::new(previous_block.index as u32 + 1, transaction, previous_block.hash.clone());
         self.chain.push(new_block);
     }
 
-    /// Validates the blockchain by checking each block's integrity and linking.
+    /// Checks if the blockchain is valid by verifying each block’s integrity and linking.
     pub fn is_valid(&self) -> bool {
         for i in 1..self.chain.len() {
             let current = &self.chain[i];
             let previous = &self.chain[i - 1];
-
-            if !current.verify_block_integrity() {
-                return false;
-            }
-            if current.previous_hash != previous.hash {
+            if !current.verify_block_integrity() || current.previous_hash != previous.hash {
                 return false;
             }
         }
         true
     }
 
-    /// Checks if a voter has already voted.
-    pub fn has_voted(&self, voter_id: &str) -> bool {
-        self.find_vote(voter_id).is_some()
-    }
-
-    /// Finds a vote by searching through the block transactions.
+    /// Searches for a vote by a given voter ID by scanning through the transactions of each block.
     pub fn find_vote(&self, voter_id: &str) -> Option<(u32, String)> {
-        for block in &self.chain {
-            if let Ok(json) = serde_json::from_str::<Value>(&block.transactions) {
-                if let Some(arr) = json.as_array() {
-                    for vote in arr {
-                        if let Some(vote_obj) = vote.as_object() {
-                            if let Some(voter_val) = vote_obj.get("voter_id") {
-                                if voter_val.as_str() == Some(voter_id) {
-                                    return Some((block.index, block.hash.clone()));
-                                }
-                            }
+        for block in self.chain.iter().skip(1) {
+            for transaction in &block.transactions {
+                if let Some(obj) = transaction.as_object() {
+                    if let Some(val) = obj.get("voter_id") {
+                        if val.as_str() == Some(voter_id) {
+                            return Some((block.index as u32, block.hash.clone()));
                         }
                     }
-                } else if let Some(vote_obj) = json.as_object() {
-                    // Single vote object.
-                    if let Some(voter_val) = vote_obj.get("voter_id") {
-                        if voter_val.as_str() == Some(voter_id) {
-                            return Some((block.index, block.hash.clone()));
-                        }
-                    }
-                }
-            } else {
-                if block.transactions.contains(voter_id) {
-                    return Some((block.index, block.hash.clone()));
                 }
             }
         }
         None
     }
 
-    /// Retrieves a vote receipt (block index, vote hash, and timestamp) by searching for a vote with a given voter_id.
-    pub fn get_vote_receipt(&self, voter_id: &str) -> Option<VoteReceipt> {
-        self.find_vote(voter_id).map(|(block_index, vote_hash)| {
-            VoteReceipt {
-                block_index,
-                vote_hash,
-                timestamp: self.chain[block_index as usize].timestamp,
-            }
-        })
-    }
-
-    /// Retrieves vote counts by iterating over blocks (skipping the genesis block).
+    /// Aggregates vote counts by iterating over transactions in each block.
+    /// Assumes each transaction has a "candidate" field.
     pub fn get_vote_counts(&self) -> HashMap<String, u32> {
         let mut vote_counts: HashMap<String, u32> = HashMap::new();
-        for block in &self.chain {
-            if block.index == 0 { continue; }
-            let transaction_str = block.transactions.as_str();
-            let parts: Vec<&str> = transaction_str.split("-> Candidate:").collect();
-            if parts.len() >= 2 {
-                let candidate = parts[1].trim();
-                *vote_counts.entry(candidate.to_string()).or_insert(0) += 1;
-            } else {
-                println!("Block {} transaction not in expected format.", block.index);
+        for block in self.chain.iter().skip(1) {
+            for transaction in &block.transactions {
+                if let Some(obj) = transaction.as_object() {
+                    if let Some(candidate_val) = obj.get("candidate") {
+                        if let Some(candidate) = candidate_val.as_str() {
+                            *vote_counts.entry(candidate.to_string()).or_insert(0) += 1;
+                        }
+                    }
+                }
             }
         }
         vote_counts
     }
-}
-    
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VoteReceipt {
-    pub block_index: u32,
-    pub vote_hash: String,
-    pub timestamp: i64,
 }

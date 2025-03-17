@@ -1,38 +1,133 @@
+/* Global styles */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+/* App container */
 .App {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* Brand styling */
+.brand-logo {
+  height: 40px;
+  margin-right: 10px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+/* Form styling */
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+.form-field {
+  margin-bottom: 20px;
+}
+
+/* Poll item styling */
+.poll-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: box-shadow 0.3s ease;
+}
+
+.poll-item:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.poll-item-title {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.poll-item-description {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+/* Result visualization */
+.result-bar {
+  height: 20px;
+  background-color: #1976d2;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  transition: width 0.5s ease-in-out;
+}
+
+.blockchain-block {
+  background-color: #e8f4f8;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-left: 4px solid #1976d2;
+}
+
+.hash-text {
+  font-family: monospace;
+  word-break: break-all;
+  background-color: #f5f5f5;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+/* Nav links animation */
+.nav-link {
+  position: relative;
   color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin: 0 15px;
+  padding: 5px 0;
 }
 
-.App-link {
-  color: #61dafb;
+.nav-link:after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background-color: white;
+  transform-origin: bottom right;
+  transition: transform 0.3s ease-out;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
+.nav-link:hover:after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+/* Auth form styling */
+.auth-card {
+  max-width: 450px;
+  margin: 40px auto;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.auth-title {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #1976d2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .auth-card {
+    max-width: 95%;
+    margin: 20px auto;
+    padding: 15px;
   }
 }
