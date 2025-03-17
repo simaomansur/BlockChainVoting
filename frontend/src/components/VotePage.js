@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useParams } from "react-router-dom";
-import { submitVote, getPollDetails, getVoteCounts } from "../api/api";
+import { castVote, getPollDetails, getVoteCounts } from "../api/api";
+import { VoterContext } from "../context/VoterContext";
 import {
   Paper,
   Typography,
@@ -20,24 +21,14 @@ import {
 
 const VotePage = () => {
   const { poll_id } = useParams();
+  const { voter } = useContext(VoterContext);
   const [poll, setPoll] = useState(null);
   const [selectedChoice, setSelectedChoice] = useState("");
-  const [voterId, setVoterId] = useState("");
   const [voteCounts, setVoteCounts] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingPoll, setLoadingPoll] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
-  // On mount, load the voter ID from localStorage.
-  useEffect(() => {
-    const storedVoterId = localStorage.getItem("voterId");
-    if (storedVoterId) {
-      setVoterId(storedVoterId);
-    } else {
-      setError("No voter ID found. Please log in.");
-    }
-  }, []);
 
   useEffect(() => {
     const fetchPollDetails = async () => {
@@ -59,8 +50,8 @@ const VotePage = () => {
 
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
-    // Since voterId is preloaded, we just check that it exists and a choice is selected.
-    if (!selectedChoice || !voterId) {
+    
+    if (!selectedChoice || !voter || !voter.voterId) {
       setError("Your voter ID is missing or no choice selected.");
       return;
     }
@@ -70,10 +61,10 @@ const VotePage = () => {
     setSuccess(null);
 
     try {
-      await submitVote({
+      await castVote({
         poll_id,
-        voter_id: voterId,
-        candidate: selectedChoice,
+        voter_id: voter.voterId,
+        vote: selectedChoice, // Changed from 'candidate' to 'vote'
       });
       setSuccess("Vote submitted successfully!");
 
@@ -116,7 +107,7 @@ const VotePage = () => {
               <TextField
                 fullWidth
                 label="Voter ID"
-                value={voterId}
+                value={voter?.voterId || ""}
                 disabled
               />
             </Grid>

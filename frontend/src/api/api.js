@@ -7,37 +7,53 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Retrieve the list of existing polls.
+// User Management APIs
+export const registerUser = async (userData) =>
+  api.post("/user/register", userData).then(res => res.data);
+
+export const loginUser = async (credentials) =>
+  api.post("/user/login", credentials).then(res => res.data);
+
+export const getUserProfile = async (voterId) =>
+  api.get(`/user/${voterId}/profile`).then(res => res.data);
+
+export const updateUserProfile = async (voterId, profileData) =>
+  api.put(`/user/${voterId}/profile`, profileData).then(res => res.data);
+
+export const changePassword = async (voterId, passwordData) =>
+  api.put(`/user/${voterId}/password`, passwordData).then(res => res.data);
+
+// Poll Management APIs
 export const getExistingPolls = async () =>
   api.get("/polls").then(res => res.data);
 
-// Create a new poll with the provided pollData.
 export const createPoll = async (pollData) =>
   api.post("/poll/create", pollData).then(res => res.data);
 
-// Submit a vote. If voteData.candidate is an object, it is stringified.
-export const submitVote = async (voteData) => {const candidateValue = typeof voteData.candidate === "object"
-      ? JSON.stringify(voteData.candidate): voteData.candidate;
-  return api.post("/poll/vote", {...voteData, candidate: candidateValue,}).then(res => res.data);};
-
-// Retrieve the blockchain for a specific poll.
-export const getBlockchain = async (pollId) =>
-  api.get(`/poll/${pollId}/blockchain`).then(res => res.data);
-
-// Retrieve vote counts for a specific poll.
-export const getVoteCounts = async (pollId) =>
-  api.get(`/poll/${pollId}/vote_counts`).then(res => res.data);
-
-// Verify a vote for a specific poll and voter.
-export const getVoteVerification = async (pollId, voterId) =>
-  api.get(`/poll/${pollId}/verify_vote/${voterId}`).then(res => res.data);
-
-// Retrieve poll details (metadata) for a specific poll.
 export const getPollDetails = async (pollId) =>
   api.get(`/poll/${pollId}/details`).then(res => res.data);
 
-// Validate the blockchain for a specific poll.
+export const getBlockchain = async (pollId) =>
+  api.get(`/poll/${pollId}/blockchain`).then(res => res.data);
+
+export const getVoteCounts = async (pollId) =>
+  api.get(`/poll/${pollId}/vote_counts`).then(res => res.data);
+
 export const checkValidity = async (pollId) =>
   api.get(`/poll/${pollId}/validity`).then(res => res.data);
+
+// Vote Management APIs
+export const castVote = async (voteData) =>
+  api.post("/vote", voteData).then(res => res.data);
+
+export const verifyVote = async (pollId, voterId) =>
+  api.get(`/vote/${pollId}/${voterId}/verify`).then(res => res.data);
+
+export const getPollResults = async (pollId) =>
+  api.get(`/poll/${pollId}/results`).then(res => res.data);
+
+// Legacy verification method (maintained for backward compatibility)
+export const getVoteVerification = async (pollId, voterId) =>
+  api.get(`/poll/${pollId}/verify_vote/${voterId}`).then(res => res.data);
 
 export default api;

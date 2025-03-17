@@ -54,8 +54,14 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     };
 
     let json = warp::reply::json(&json!({ "error": message }));
-
-    Ok(warp::reply::with_status(json, warp::http::StatusCode::BAD_REQUEST))
+    let response = warp::reply::with_status(json, warp::http::StatusCode::BAD_REQUEST);
+    
+    // Add CORS headers to the error response
+    Ok(warp::reply::with_header(
+        response,
+        "Access-Control-Allow-Origin",
+        "*"
+    ))
 }
 
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -109,8 +115,9 @@ async fn main() {
     // ---------------
     let cors = cors()
         .allow_any_origin()
-        .allow_methods(vec!["GET", "POST", "PUT", "OPTIONS"])
-        .allow_headers(vec!["Content-Type", "Authorization"]);
+        .allow_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+        .allow_headers(vec!["Content-Type", "Authorization"])
+        .build(); 
 
     // Filters for injecting shared state
     let pm_filter = warp::any().map(move || poll_manager.clone());

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { createPoll } from "../api/api";
+import { VoterContext } from "../context/VoterContext";
 import {
   TextField,
   Button,
@@ -12,6 +13,7 @@ import {
 } from "@mui/material";
 
 const CreatePollPage = () => {
+  const { voter } = useContext(VoterContext);
   const [pollData, setPollData] = useState({
     poll_id: "", // Optionally auto-generate or allow input
     title: "",
@@ -19,21 +21,9 @@ const CreatePollPage = () => {
     options: "",
     is_public: true,
   });
-  const [voterId, setVoterId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
-  // On mount, load the voter ID from localStorage.
-  useEffect(() => {
-    const storedVoterId = localStorage.getItem("voterId");
-    if (storedVoterId) {
-      setVoterId(storedVoterId);
-    } else {
-      setError("No voter ID found. Please log in first.");
-      // Optionally, you could redirect the user to the login page here.
-    }
-  }, []);
 
   // Handle text field changes.
   const handleChange = (e) => {
@@ -55,7 +45,7 @@ const CreatePollPage = () => {
       setError("All fields are required.");
       return;
     }
-    if (!voterId) {
+    if (!voter || !voter.voterId) {
       setError("Voter ID is missing. Please log in.");
       return;
     }
@@ -100,11 +90,11 @@ const CreatePollPage = () => {
       <form onSubmit={handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            {/* Display the voter ID from localStorage */}
+            {/* Display the voter ID from context */}
             <TextField
               fullWidth
               label="Voter ID"
-              value={voterId}
+              value={voter?.voterId || ""}
               disabled
             />
           </Grid>
