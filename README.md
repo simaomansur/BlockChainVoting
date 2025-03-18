@@ -16,3 +16,9 @@ test
 search database
 
 1. docker exec -it project-db-1 psql -U username -d my_database
+2. \d (lists tables)
+3. \d polls (shows columns in polls table)
+    -SELECT * FROM polls; (shows all rows in polls table)
+4. \d voters (shows columns in voters table)
+    -SELECT * FROM voters; (shows all rows in voters table)
+
