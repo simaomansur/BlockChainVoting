@@ -286,6 +286,7 @@ mod tests {
         
         let registration = UserRegistration {
             name: "Test User".to_string(),
+            email: "a@a.com".to_string(),
             zip_code: "12345".to_string(),
             birth_date: "2000-01-01".to_string(),
             password: "testpassword".to_string(),
@@ -295,7 +296,7 @@ mod tests {
             .expect("User registration failed");
 
         let login = UserLogin {
-            voter_id: registered_user.voter_id.clone(),
+            email: registered_user.email.clone().unwrap(),
             password: "testpassword".to_string(),
         };
 
@@ -312,6 +313,7 @@ mod tests {
         
         let registration = UserRegistration {
             name: "Password Tester".to_string(),
+            email: "a@a.com".to_string(),
             zip_code: "54321".to_string(),
             birth_date: "1990-05-05".to_string(),
             password: "oldpassword".to_string(),
@@ -327,7 +329,7 @@ mod tests {
         
         // Login with new password should succeed.
         let login_new = UserLogin {
-            voter_id: registered_user.voter_id.clone(),
+            email: registered_user.email.clone().unwrap(),
             password: "newpassword".to_string(),
         };
         let user_new = user_manager.login_user(login_new).await
@@ -336,7 +338,7 @@ mod tests {
         
         // Login with old password should fail.
         let login_old = UserLogin {
-            voter_id: registered_user.voter_id.clone(),
+            email: registered_user.email.clone().unwrap(),
             password: "oldpassword".to_string(),
         };
         let result = user_manager.login_user(login_old).await;

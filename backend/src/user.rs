@@ -1,4 +1,3 @@
-// backend/src/user.rs
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
@@ -14,6 +13,7 @@ pub struct User {
     pub id: i32,
     pub voter_id: String,
     pub name: Option<String>,
+    pub email: Option<String>,
     pub zip_code: Option<String>,
     pub birth_date: Option<chrono::NaiveDate>,
     pub created_at: DateTime<Utc>,
@@ -25,15 +25,16 @@ pub struct User {
 #[derive(Debug, Deserialize)]
 pub struct UserRegistration {
     pub name: String,
+    pub email: String,
     pub zip_code: String,
     pub birth_date: String,
     pub password: String,
 }
 
-/// User login input structure
+/// User login input structure — now using email instead of voter_id
 #[derive(Debug, Deserialize)]
 pub struct UserLogin {
-    pub voter_id: String,
+    pub email: String,
     pub password: String,
 }
 
@@ -105,13 +106,14 @@ impl UserManager {
         // Insert the new user into the database
         let user = sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO voters (voter_id, name, zip_code, birth_date, password_hash)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, voter_id, name, zip_code, birth_date, created_at, password_hash
-            "#,
+            INSERT INTO voters (voter_id, name, email, zip_code, birth_date, password_hash)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, voter_id, name, email, zip_code, birth_date, created_at, password_hash
+            "#
         )
         .bind(&voter_id)
         .bind(&registration.name)
+        .bind(&registration.email)
         .bind(&registration.zip_code)
         .bind(birth_date)
         .bind(&password_hash)
@@ -122,31 +124,31 @@ impl UserManager {
         Ok(user)
     }
 
-    /// Login a user
+    /// Login a user using email and password.
     pub async fn login_user(&self, login: UserLogin) -> Result<User, UserError> {
-        // Fetch the user from the database
+        // Fetch the user by email.
         let user = sqlx::query_as::<_, User>(
-            "SELECT id, voter_id, name, zip_code, birth_date, created_at, password_hash FROM voters WHERE voter_id = $1",
+            "SELECT id, voter_id, name, email, zip_code, birth_date, created_at, password_hash FROM voters WHERE email = $1"
         )
-        .bind(&login.voter_id)
+        .bind(&login.email)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| UserError::DatabaseError(e.to_string()))?;
 
-        // Check if the user exists
-        let user = user.ok_or_else(|| UserError::AuthenticationError("Invalid voter ID or password".to_string()))?;
+        // Check if the user exists.
+        let user = user.ok_or_else(|| UserError::AuthenticationError("Invalid email or password".to_string()))?;
 
-        // Verify the password
+        // Verify the password.
         verify_password(&login.password, &user.password_hash)
-            .map_err(|_| UserError::AuthenticationError("Invalid voter ID or password".to_string()))?;
+            .map_err(|_| UserError::AuthenticationError("Invalid email or password".to_string()))?;
 
         Ok(user)
     }
 
-    /// Get a user by voter ID
+    /// Get a user by voter ID.
     pub async fn get_user_by_voter_id(&self, voter_id: &str) -> Result<User, UserError> {
         let user = sqlx::query_as::<_, User>(
-            "SELECT id, voter_id, name, zip_code, birth_date, created_at, password_hash FROM voters WHERE voter_id = $1",
+            "SELECT id, voter_id, name, email, zip_code, birth_date, created_at, password_hash FROM voters WHERE voter_id = $1"
         )
         .bind(voter_id)
         .fetch_optional(&self.pool)
@@ -156,20 +158,20 @@ impl UserManager {
         user.ok_or_else(|| UserError::DatabaseError("User not found".to_string()))
     }
 
-    /// Update user information
+    /// Update user information.
     pub async fn update_user(&self, voter_id: &str, name: Option<String>, zip_code: Option<String>) -> Result<User, UserError> {
-        // Check if the user exists
+        // Check if the user exists.
         let _user = self.get_user_by_voter_id(voter_id).await?;
     
-        // Update the user in the database
+        // Update the user in the database.
         let updated_user = sqlx::query_as::<_, User>(
             r#"
             UPDATE voters 
             SET name = COALESCE($2, name), 
                 zip_code = COALESCE($3, zip_code)
             WHERE voter_id = $1
-            RETURNING id, voter_id, name, zip_code, birth_date, created_at, password_hash
-            "#,
+            RETURNING id, voter_id, name, email, zip_code, birth_date, created_at, password_hash
+            "#
         )
         .bind(voter_id)
         .bind(name)
@@ -181,20 +183,20 @@ impl UserManager {
         Ok(updated_user)
     }
 
-    /// Change user password
+    /// Change user password.
     pub async fn change_password(&self, voter_id: &str, old_password: &str, new_password: &str) -> Result<(), UserError> {
-        // Fetch the user from the database
+        // Fetch the user.
         let user = self.get_user_by_voter_id(voter_id).await?;
     
-        // Verify the old password
+        // Verify the old password.
         verify_password(old_password, &user.password_hash)
             .map_err(|_| UserError::AuthenticationError("Invalid current password".to_string()))?;
     
-        // Hash the new password
+        // Hash the new password.
         let new_password_hash = hash_password(new_password)
             .map_err(|e| UserError::ValidationError(format!("Password hashing error: {}", e)))?;
     
-        // Update the password in the database
+        // Update the password.
         sqlx::query("UPDATE voters SET password_hash = $1 WHERE voter_id = $2")
             .bind(&new_password_hash)
             .bind(voter_id)
@@ -206,7 +208,7 @@ impl UserManager {
     }
 }
 
-/// Helper function to hash a password
+/// Helper function to hash a password.
 pub fn hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -214,13 +216,13 @@ pub fn hash_password(password: &str) -> Result<String, argon2::password_hash::Er
     Ok(password_hash.to_string())
 }
 
-/// Helper function to verify a password
+/// Helper function to verify a password.
 pub fn verify_password(password: &str, hash: &str) -> Result<(), argon2::password_hash::Error> {
     let parsed_hash = PasswordHash::new(hash)?;
     Argon2::default().verify_password(password.as_bytes(), &parsed_hash)
 }
 
-/// Alter the table to add password_hash column
+/// Alter the table to add password_hash column.
 pub async fn migrate_password_column(pool: &Pool<Postgres>) -> Result<(), sqlx::Error> {
     sqlx::query(
         "ALTER TABLE voters ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT ''",
