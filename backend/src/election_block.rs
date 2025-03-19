@@ -9,7 +9,7 @@ use sqlx::Row;
 pub struct ElectionBlock {
     pub index: u32,
     pub timestamp: i64,
-    pub transactions: Value, // A single vote stored as a JSON object
+    pub transactions: Value,
     pub previous_hash: String,
     pub hash: String,
     #[serde(skip)]

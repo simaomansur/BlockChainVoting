@@ -13,8 +13,7 @@ use election_initializer::init_election_poll;
 use sqlx::migrate::Migrator;
 use dotenv::dotenv;
 mod db;
-
-use sqlx::Row; // For try_get on rows
+use sqlx::Row;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {

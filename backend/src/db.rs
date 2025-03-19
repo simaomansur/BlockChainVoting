@@ -8,7 +8,6 @@ pub async fn create_db_pool() -> Pool<Postgres> {
     dotenv().ok();
     
     // Get the DATABASE_URL from environment (Docker will set this)
-    // or fall back to .env file if set
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set in environment or .env file");
         

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { createPoll } from "../api/api";
 import { VoterContext } from "../context/VoterContext";
 import {
@@ -15,7 +15,6 @@ import {
 const CreatePollPage = () => {
   const { voter } = useContext(VoterContext);
   const [pollData, setPollData] = useState({
-    poll_id: "", // Optionally auto-generate or allow input
     title: "",
     question: "",
     options: "",
@@ -41,7 +40,7 @@ const CreatePollPage = () => {
     e.preventDefault();
 
     // Ensure all fields are filled in.
-    if (!pollData.poll_id || !pollData.title || !pollData.question || !pollData.options) {
+    if (!pollData.title || !pollData.question || !pollData.options) {
       setError("All fields are required.");
       return;
     }
@@ -61,11 +60,11 @@ const CreatePollPage = () => {
         options: pollData.options.split(",").map((opt) => opt.trim()),
       };
 
-      await createPoll(formattedPollData);
-      setSuccess("Poll created successfully!");
-      // Clear the form (poll_id might be auto-generated in a future revision).
+      const response = await createPoll(formattedPollData);
+      setSuccess(`Poll created successfully! Poll ID: ${response.poll_id}`);
+      
+      // Clear the form
       setPollData({
-        poll_id: "",
         title: "",
         question: "",
         options: "",
@@ -96,15 +95,6 @@ const CreatePollPage = () => {
               label="Voter ID"
               value={voter?.voterId || ""}
               disabled
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Poll ID"
-              name="poll_id"
-              value={pollData.poll_id}
-              onChange={handleChange}
             />
           </Grid>
           <Grid item xs={12}>

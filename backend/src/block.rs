@@ -2,14 +2,14 @@ use sha2::{Digest, Sha256};
 use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
-use crate::merkle_tree::MerkleTree; // Ensure your merkle_tree module is available
+use crate::merkle_tree::MerkleTree;
 use sqlx::Row;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub index: i32,
     pub timestamp: i64,
-    pub transactions: Vec<Value>, // Structured transactions
+    pub transactions: Vec<Value>,
     pub previous_hash: String,
     pub hash: String,
     #[serde(skip)]
@@ -25,7 +25,7 @@ impl Block {
         // Serialize transactions vector to compute hash.
         let transactions_serialized = serde_json::to_string(&transactions_vec).unwrap_or_default();
         let hash = Self::calculate_hash(index, timestamp, &transactions_serialized, &previous_hash);
-
+        // Create a new Merkle tree and add the transaction to it.
         let mut merkle_tree = MerkleTree::new();
         // Compute the hash of the transaction and add it to the Merkle tree.
         let tx_bytes = serde_json::to_vec(&transaction).unwrap_or_default();
