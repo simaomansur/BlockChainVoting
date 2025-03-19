@@ -2,6 +2,7 @@ import axios from "axios";
 
 const API_BASE_URL = "http://127.0.0.1:3030";
 
+// Set the API endpoint based on the environment
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
@@ -22,6 +23,9 @@ export const updateUserProfile = async (voterId, profileData) =>
 
 export const changePassword = async (voterId, passwordData) =>
   api.put(`/user/${voterId}/password`, passwordData).then(res => res.data);
+
+export const checkEmailExists = async (email) =>
+  api.post("/user/check-email", { email: email }).then(res => res.data);
 
 // Poll Management APIs
 export const getExistingPolls = async () =>

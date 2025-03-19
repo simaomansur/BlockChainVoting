@@ -116,19 +116,13 @@ async fn main() {
     let cors = cors()
         .allow_any_origin()
         .allow_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-        .allow_headers(vec!["Content-Type", "Authorization"])
+        .allow_headers(vec!["Content-Type", "Authorization", "X-Requested-With"])
         .build(); 
 
     // Filters for injecting shared state
     let pm_filter = warp::any().map(move || poll_manager.clone());
     let um_filter = warp::any().map(move || user_manager.clone());
     let vi_filter = warp::any().map(move || voting_integration.clone());
-
-    // ------------------
-    // Error Conversions
-    // ------------------
-
-    // We'll define some helpers for rejections if needed, but we already have them.
 
     // --------------------
     // User Management
@@ -242,6 +236,37 @@ async fn main() {
                 .await
                 .map(|_| warp::reply::json(&json!({ "status": "Password changed successfully" })))
                 .map_err(user_error_to_rejection)
+        })
+        .with(cors.clone());
+
+    let check_email = warp::post()
+        .and(warp::path("user"))
+        .and(warp::path("check-email"))
+        .and(warp::body::json())
+        .and(um_filter.clone())
+        .and_then(|body: serde_json::Value, user_manager: Arc<UserManager>| async move {
+            println!("Received check-email request: {:?}", body); // Debug log
+            
+            let email = body.get("email")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| reject::custom(CustomRejection {
+                    message: "Missing email field in request".to_string(),
+                }))?;
+            
+            println!("Checking email: {}", email); // Debug log
+            
+            match user_manager.email_exists(email).await {
+                Ok(exists) => {
+                    println!("Email check result for {}: {}", email, exists); // Debug log
+                    Ok(warp::reply::json(&json!({
+                        "exists": exists
+                    })))
+                },
+                Err(e) => {
+                    println!("Error checking email {}: {:?}", email, e); // Debug log
+                    Err(user_error_to_rejection(e))
+                }
+            }
         })
         .with(cors.clone());
 
@@ -480,7 +505,8 @@ async fn main() {
         .or(login)
         .or(get_profile)
         .or(update_profile)
-        .or(change_password);
+        .or(change_password)
+        .or(check_email);
 
     let integrated_voting_routes = cast_vote
         .or(verify_vote_integrated)

@@ -3,7 +3,7 @@ use argon2::{
     Argon2,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Row};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
@@ -90,6 +90,17 @@ impl UserManager {
         // Validate input data
         if registration.name.trim().is_empty() {
             return Err(UserError::ValidationError("Name cannot be empty".to_string()));
+        }
+
+        if !registration.email.contains('@') {
+            return Err(UserError::ValidationError("Invalid email format".to_string()));
+        }
+
+        // First check if email already exists (case insensitive)
+        match self.email_exists(&registration.email).await {
+            Ok(true) => return Err(UserError::ValidationError("Email already registered".to_string())),
+            Ok(false) => {}, // Continue with registration
+            Err(e) => return Err(e), // Propagate any database errors
         }
 
         // Parse birth date
@@ -205,6 +216,26 @@ impl UserManager {
             .map_err(|e| UserError::DatabaseError(e.to_string()))?;
     
         Ok(())
+    }
+
+    // Check if an email already exists in the database
+    pub async fn email_exists(&self, email: &str) -> Result<bool, UserError> {
+        // Trim and lowercase the email for consistent comparison
+        let email = email.trim().to_lowercase();
+        
+        let result = sqlx::query("SELECT COUNT(*) as count FROM voters WHERE LOWER(email) = LOWER($1)")
+            .bind(email)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| {
+                println!("Database error checking email: {:?}", e);  // Debug log
+                UserError::DatabaseError(e.to_string())
+            })?;
+        
+        let count: i64 = result.try_get("count")
+            .map_err(|e| UserError::DatabaseError(e.to_string()))?;
+        
+        Ok(count > 0)
     }
 }
 

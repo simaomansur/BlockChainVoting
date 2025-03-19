@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Paper, TextField, Button, Typography, Box, CircularProgress, Alert } from "@mui/material";
-import { registerUser } from "../api/api";
+import { registerUser, checkEmailExists } from "../api/api";
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +16,8 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -24,6 +26,36 @@ const RegisterPage = () => {
       ...prevData,
       [name]: value
     }));
+    
+    // Clear email error when user changes the email
+    if (name === "email") {
+      setEmailError("");
+    }
+  };
+
+  // Check if email already exists when email field loses focus
+  const handleEmailBlur = async () => {
+    const email = formData.email.trim();
+    if (email && email.includes('@')) {
+      setEmailChecking(true);
+      try {
+        console.log("Checking email:", email); // Debug log
+        const response = await checkEmailExists(email);
+        console.log("Email check response:", response); // Debug log
+        
+        if (response && response.exists) {
+          setEmailError("This email is already registered");
+        } else {
+          setEmailError("");
+        }
+      } catch (err) {
+        console.error("Failed to check email:", err);
+        // Don't set an error message for the email field on API error
+        // This allows the form submission to proceed and handle the error there
+      } finally {
+        setEmailChecking(false);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -31,6 +63,13 @@ const RegisterPage = () => {
     setLoading(true);
     setError("");
     setSuccess("");
+
+    // Check if email has error
+    if (emailError) {
+      setError(emailError);
+      setLoading(false);
+      return;
+    }
 
     // Validate password match
     if (formData.password !== formData.confirmPassword) {
@@ -40,6 +79,9 @@ const RegisterPage = () => {
     }
 
     try {
+      // Don't do another email check here - if the backend has email uniqueness validation,
+      // it will catch duplicates and return an error
+
       // Prepare registration data
       const registrationData = {
         name: formData.name,
@@ -60,6 +102,11 @@ const RegisterPage = () => {
         navigate("/login");
       }, 3000);
     } catch (err) {
+      console.error("Registration error:", err);
+      // Check if this is an email duplication error from backend
+      if (err.response?.data?.error?.includes("Email already registered")) {
+        setEmailError("This email is already registered");
+      }
       setError(err.response?.data?.error || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
@@ -100,7 +147,10 @@ const RegisterPage = () => {
           variant="outlined"
           value={formData.email}
           onChange={handleChange}
+          onBlur={handleEmailBlur}
           required
+          error={!!emailError}
+          helperText={emailChecking ? "Checking email..." : emailError}
         />
         <TextField
           label="Password"
@@ -141,7 +191,7 @@ const RegisterPage = () => {
           variant="contained" 
           color="primary" 
           type="submit" 
-          disabled={loading}
+          disabled={loading || emailChecking}
           sx={{ mt: 1 }}
         >
           {loading ? <CircularProgress size={24} /> : "Register"}
