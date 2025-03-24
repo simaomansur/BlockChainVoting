@@ -21,4 +21,4 @@ docker-compose down
 
 # Build and start the containers
 docker-compose build --no-cache
-docker-compose up
+docker-compose up --watch

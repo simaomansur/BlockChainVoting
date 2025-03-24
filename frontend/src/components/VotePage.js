@@ -61,10 +61,11 @@ const VotePage = () => {
     setSuccess(null);
 
     try {
+      // Fixed: Use "vote" as the payload key instead of "candidate"
       await castVote({
         poll_id,
         voter_id: voter.voterId,
-        vote: selectedChoice, // Changed from 'candidate' to 'vote'
+        vote: selectedChoice,
       });
       setSuccess("Vote submitted successfully!");
 

@@ -1,3 +1,4 @@
+// src/components/ExistingPollsPage.jsx
 import React, { useState, useEffect } from "react";
 import { getExistingPolls } from "../api/api";
 import { useNavigate } from "react-router-dom";
@@ -22,6 +23,7 @@ const ExistingPollsPage = () => {
     const fetchPolls = async () => {
       try {
         const data = await getExistingPolls();
+        // Optionally filter out "election" if you want
         const filtered = data.filter((poll) => poll.poll_id !== "election");
         setPolls(filtered);
       } catch (err) {
@@ -64,12 +66,15 @@ const ExistingPollsPage = () => {
                 primary={poll.title}
                 secondary={poll.question}
               />
-              <Button
-                variant="outlined"
-                onClick={() => navigate(`/vote/${poll.poll_id}`)}
-              >
-                Vote
-              </Button>
+              <Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => navigate(`/poll/${poll.poll_id}`)}
+                >
+                  View
+                </Button>
+              </Box>
             </ListItem>
           ))}
         </List>

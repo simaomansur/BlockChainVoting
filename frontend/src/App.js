@@ -9,8 +9,11 @@ import RegisterPage from "./components/RegisterPage";
 import ProfilePage from "./components/ProfilePage";
 import CreatePollPage from "./components/CreatePollPage";
 import ExistingPollsPage from "./components/ExistingPollsPage";
-import VotePage from "./components/VotePage";
 import ElectionBallotPage from "./components/ElectionBallotPage";
+
+// IMPORTANT: Rename the import so it matches the actual file name
+import PollDetailsPage from "./components/PollDetailsPage";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AppBar, Toolbar, Button, Typography, Box, Container } from "@mui/material";
 import { VoterContext } from "./context/VoterContext";
@@ -18,19 +21,19 @@ import { VoterContext } from "./context/VoterContext";
 // Navigation component with conditional rendering based on auth status
 const Navigation = () => {
   const { voter, logout } = useContext(VoterContext);
-  
+
   return (
     <AppBar position="static">
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           Blockchain Voting
         </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2 }}>
+
+        <Box sx={{ display: "flex", gap: 2 }}>
           <Button color="inherit" component={Link} to="/">
             Home
           </Button>
-          
+
           {voter ? (
             <>
               <Button color="inherit" component={Link} to="/create">
@@ -77,6 +80,7 @@ const App = () => {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/" element={<HomePage />} />
+
                 <Route
                   path="/profile"
                   element={
@@ -102,18 +106,20 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/vote/:poll_id"
-                  element={
-                    <ProtectedRoute>
-                      <VotePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
                   path="/election"
                   element={
                     <ProtectedRoute>
                       <ElectionBallotPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Unified Poll Details route (shows both poll info and results) */}
+                <Route
+                  path="/poll/:pollId"
+                  element={
+                    <ProtectedRoute>
+                      <PollDetailsPage />
                     </ProtectedRoute>
                   }
                 />

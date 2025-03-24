@@ -1,13 +1,8 @@
 use std::sync::Arc;
-use tokio::sync::Mutex; // Use Tokio's async mutex
+use tokio::sync::Mutex;
 use serde_json::{Value, json};
 use crate::vote_service::{VoteService, VoteRequest, VoteServiceError};
 use crate::poll_manager::{PollManager, Poll};
-
-pub struct VotingIntegration {
-    poll_manager: Arc<Mutex<PollManager>>,
-    vote_service: Arc<VoteService>,
-}
 
 #[derive(Debug)]
 pub enum VotingError {
@@ -40,6 +35,11 @@ impl std::fmt::Display for VotingError {
 
 impl std::error::Error for VotingError {}
 
+pub struct VotingIntegration {
+    pub poll_manager: Arc<Mutex<PollManager>>,
+    pub vote_service: Arc<VoteService>,
+}
+
 impl VotingIntegration {
     pub fn new(
         poll_manager: Arc<Mutex<PollManager>>,
@@ -48,17 +48,17 @@ impl VotingIntegration {
         Self { poll_manager, vote_service }
     }
 
-    // Cast a vote that is recorded both in the blockchain and database
+    /// Cast a vote that is recorded both in the blockchain and database.
     pub async fn cast_vote(&self, poll_id: &str, voter_id: &str, vote_data: Value) -> Result<(), VotingError> {
-        // Check if the poll exists (async lock)
-        let poll_exists = {
+        // Determine poll type using poll manager
+        let poll_type = {
             let pm = self.poll_manager.lock().await;
-            pm.get_poll(poll_id).is_some()
+            match pm.get_poll(poll_id) {
+                Some(Poll::Election { .. }) => "election",
+                Some(Poll::Normal { .. }) => "normal",
+                None => return Err(VotingError::ValidationError(format!("Poll {} does not exist", poll_id))),
+            }
         };
-
-        if !poll_exists {
-            return Err(VotingError::ValidationError(format!("Poll {} does not exist", poll_id)));
-        }
 
         // Check if the voter has already voted in the database
         let already_voted = self.vote_service.has_voted(poll_id, voter_id).await?;
@@ -68,60 +68,50 @@ impl VotingIntegration {
             ));
         }
 
-        // Prepare vote transaction for blockchain
-        let vote_transaction = if poll_id == "election" {
-            // Special handling for election poll
-            let mut vote_obj = serde_json::Map::new();
+        // Process vote data consistently into a structured JSON object
+        let processed_vote = if vote_data.is_string() {
+            json!({
+                "voter_id": voter_id,
+                "candidate": vote_data.as_str().unwrap()
+            })
+        } else if vote_data.is_object() {
+            let mut vote_obj = vote_data.as_object().unwrap().clone();
             vote_obj.insert("voter_id".to_string(), Value::String(voter_id.to_string()));
-            
-            if let Value::Object(map) = &vote_data {
-                for (k, v) in map {
-                    vote_obj.insert(k.clone(), v.clone());
+            if !vote_obj.contains_key("candidate") {
+                if let Some(choice) = vote_obj.get("choice").and_then(|v| v.as_str()) {
+                    vote_obj.insert("candidate".to_string(), Value::String(choice.to_string()));
+                } else {
+                    vote_obj.insert("candidate".to_string(), Value::String("unknown".to_string()));
                 }
             }
-            
             Value::Object(vote_obj)
         } else {
-            // For normal polls
-            match &vote_data {
-                Value::String(s) => Value::String(format!("Voter: {} -> Candidate: {}", voter_id, s)),
-                _ => {
-                    let mut vote_obj = serde_json::Map::new();
-                    vote_obj.insert("voter_id".to_string(), Value::String(voter_id.to_string()));
-                    
-                    if let Value::Object(map) = &vote_data {
-                        for (k, v) in map {
-                            vote_obj.insert(k.clone(), v.clone());
-                        }
-                    }
-                    
-                    Value::Object(vote_obj)
-                }
-            }
+            json!({
+                "voter_id": voter_id,
+                "candidate": serde_json::to_string(&vote_data).unwrap_or("unknown".to_string())
+            })
         };
 
-        // Add vote to blockchain
+        // Add vote to blockchain using the processed vote
         {
             let mut pm = self.poll_manager.lock().await;
-            pm.add_vote(poll_id, vote_transaction.clone())
+            pm.add_vote(poll_id, processed_vote.clone())
                 .map_err(|e| VotingError::PollManagerError(e.to_string()))?;
         }
 
-        // Record vote in database
+        // Record vote in database using the same processed vote
         let vote_request = VoteRequest {
             poll_id: poll_id.to_string(),
             voter_id: voter_id.to_string(),
-            vote_data,
+            vote_data: processed_vote,
         };
-        
         self.vote_service.record_vote(vote_request).await?;
 
         Ok(())
     }
 
-    // Verify a vote in both blockchain and database
+    /// Verify a vote in both blockchain and database.
     pub async fn verify_vote(&self, poll_id: &str, voter_id: &str) -> Result<Value, VotingError> {
-        // Check in blockchain
         let blockchain_result = {
             let pm = self.poll_manager.lock().await;
             match pm.get_poll(poll_id) {
@@ -149,10 +139,8 @@ impl VotingIntegration {
             }
         };
 
-        // Check in database
         let db_vote = self.vote_service.get_vote(poll_id, voter_id).await?;
         
-        // Combine results
         match (blockchain_result, db_vote) {
             (Some(blockchain_data), Some(db_record)) => {
                 Ok(json!({
@@ -194,9 +182,8 @@ impl VotingIntegration {
         }
     }
 
-    // Get poll results from both blockchain and database
+    /// Get poll results from both blockchain and database.
     pub async fn get_poll_results(&self, poll_id: &str) -> Result<Value, VotingError> {
-        // Get blockchain counts - using JSON Value to handle different return types
         let blockchain_counts_json = {
             let pm = self.poll_manager.lock().await;
             match pm.get_poll(poll_id) {
@@ -210,10 +197,8 @@ impl VotingIntegration {
             }
         };
     
-        // Get database counts
         let database_counts = self.vote_service.get_vote_counts(poll_id).await?;
     
-        // Return combined results
         Ok(json!({
             "blockchain_results": blockchain_counts_json,
             "database_results": database_counts,

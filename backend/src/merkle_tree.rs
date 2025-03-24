@@ -1,26 +1,9 @@
 use sha2::{Sha256, Digest};
 
-#[derive(Debug, Clone, Default)]  // Added Clone and Default
+#[derive(Debug, Clone, Default)]
 pub struct MerkleTree {
     leaves: Vec<MerkleNode>,
     root: Option<MerkleNode>,
-}
-
-impl MerkleNode {
-    pub fn left(&self) -> Option<&Box<MerkleNode>> {
-        self.left.as_ref()
-    }
-
-    pub fn right(&self) -> Option<&Box<MerkleNode>> {
-        self.right.as_ref()
-    }
-}
-
-#[derive(Debug, Clone)]  // MerkleNode already had Clone
-pub struct MerkleNode {
-    hash: Vec<u8>,
-    left: Option<Box<MerkleNode>>,
-    right: Option<Box<MerkleNode>>,
 }
 
 impl MerkleTree {
@@ -37,7 +20,8 @@ impl MerkleTree {
         self.update_tree();
     }
 
-    pub fn root_hash(&self) -> Option<&Vec<u8>> {
+    /// Returns the root hash of the Merkle tree as a reference to a Vec<u8>, if available.
+    pub fn root(&self) -> Option<&Vec<u8>> {
         self.root.as_ref().map(|node| &node.hash)
     }
 
@@ -72,7 +56,15 @@ impl MerkleTree {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct MerkleNode {
+    hash: Vec<u8>,
+    left: Option<Box<MerkleNode>>,
+    right: Option<Box<MerkleNode>>,
+}
+
 impl MerkleNode {
+    /// Creates a new leaf node with the given hash.
     fn new_leaf(hash: Vec<u8>) -> Self {
         MerkleNode {
             hash,
@@ -81,15 +73,11 @@ impl MerkleNode {
         }
     }
     
-    // This creates a parent node between two leaves.
+    /// Creates a new internal node from two child nodes.
     fn new_internal(left: MerkleNode, right: MerkleNode) -> Self {
-
-        // Creates new hash based on the combined hash of the children. 
         let mut hasher = Sha256::new();
-        
         hasher.update(&left.hash);
         hasher.update(&right.hash);
-        
         let hash = hasher.finalize().to_vec();
 
         MerkleNode {
@@ -99,6 +87,7 @@ impl MerkleNode {
         }
     }
 
+    /// Hashes arbitrary data using SHA256.
     pub fn hash_data(data: &[u8]) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(data);
