@@ -15,6 +15,7 @@ use dotenv::dotenv;
 mod db;
 
 use sqlx::Row; // For try_get on rows
+use std::fs;   // For reading states-10m.json
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
@@ -64,7 +65,31 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     ))
 }
 
+// Migrations
 static MIGRATOR: Migrator = sqlx::migrate!();
+
+// Serve states-10m.json so the front-end can fetch it
+async fn serve_states_map() -> Result<impl warp::Reply, Infallible> {
+    let file_path = "data/states-10m.json";
+    match fs::read_to_string(file_path) {
+        Ok(contents) => {
+            // Return with 200 OK
+            Ok(warp::reply::with_status(
+                warp::reply::with_header(contents, "Content-Type", "application/json"),
+                warp::http::StatusCode::OK
+            ))
+        }
+        Err(e) => {
+            eprintln!("Error reading states-10m.json: {}", e);
+            let err_json = r#"{"error":"Could not load states-10m.json"}"#.to_string();
+            // Return with 500
+            Ok(warp::reply::with_status(
+                warp::reply::with_header(err_json, "Content-Type", "application/json"),
+                warp::http::StatusCode::INTERNAL_SERVER_ERROR
+            ))
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -74,22 +99,19 @@ async fn main() {
     // Run migrations
     MIGRATOR.run(&pool).await.expect("Failed to run migrations");
     
-    // Ensure password_hash column exists
+    // Migrate password column
     migrate_password_column(&pool).await.expect("Failed to migrate password column");
 
-    // ------------------
     // Create PollManager
-    // ------------------
     let poll_manager = Arc::new(Mutex::new(PollManager::new(pool.clone())));
 
-    // Load existing polls from the database
+    // Load existing polls
     {
         let poll_rows = sqlx::query("SELECT poll_id FROM polls")
             .fetch_all(&pool)
             .await
             .expect("Failed to fetch poll rows");
         
-        // Lock poll_manager asynchronously
         let mut pm = poll_manager.lock().await;
         for row in poll_rows {
             let poll_id: String = row.try_get("poll_id").expect("Failed to extract poll_id");
@@ -97,41 +119,31 @@ async fn main() {
         }
     }
 
-    // Initialize the election poll
+    // Initialize the "default" election poll if none exist
     {
         let mut pm = poll_manager.lock().await;
         init_election_poll(&mut pm).await;
     }
 
-    // ----------------------
-    // Create Other Managers
-    // ----------------------
+    // Create other managers
     let user_manager = Arc::new(UserManager::new(pool.clone()));
     let vote_service = Arc::new(VoteService::new(pool.clone()));
     let voting_integration = Arc::new(VotingIntegration::new(poll_manager.clone(), vote_service.clone()));
 
-    // ---------------
     // Warp + CORS
-    // ---------------
     let cors = cors()
         .allow_any_origin()
         .allow_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
         .allow_headers(vec!["Content-Type", "Authorization"])
-        .build(); 
+        .build();
 
     // Filters for injecting shared state
     let pm_filter = warp::any().map(move || poll_manager.clone());
     let um_filter = warp::any().map(move || user_manager.clone());
     let vi_filter = warp::any().map(move || voting_integration.clone());
 
-    // ------------------
-    // Error Conversions
-    // ------------------
-
-    // We'll define some helpers for rejections if needed, but we already have them.
-
     // --------------------
-    // User Management
+    // USER Management
     // --------------------
     let register = warp::post()
         .and(warp::path("user"))
@@ -246,7 +258,7 @@ async fn main() {
         .with(cors.clone());
 
     // ------------------------
-    // Poll Management Routes
+    // POLL Management Routes
     // ------------------------
     let create_poll = warp::post()
         .and(warp::path("poll"))
@@ -254,7 +266,6 @@ async fn main() {
         .and(warp::body::json())
         .and(pm_filter.clone())
         .and_then(|poll: PollInput, poll_manager: Arc<Mutex<PollManager>>| async move {
-            // Lock asynchronously
             let mut pm = poll_manager.lock().await;
             match pm.create_poll(poll).await {
                 Ok(poll_id) => Ok::<_, Rejection>(warp::reply::json(&json!({
@@ -269,7 +280,7 @@ async fn main() {
         .with(cors.clone());
 
     // -----------------------------
-    // Integrated Voting Routes
+    // INTEGRATED VOTING ROUTES
     // -----------------------------
     let cast_vote = warp::post()
         .and(warp::path("vote"))
@@ -333,46 +344,43 @@ async fn main() {
         .with(cors.clone());
 
     // --------------------------
-    // Existing Poll Routes
+    // EXISTING POLL ROUTES
     // --------------------------
     use serde_json::{json, Value};
-use std::convert::Infallible;
+    use std::convert::Infallible;
 
-let list_polls = warp::get()
-    .and(warp::path!("polls"))
-    .and(pm_filter.clone())
-    .and_then(|poll_manager: Arc<Mutex<PollManager>>| async move {
-        let pm = poll_manager.lock().await;
+    let list_polls = warp::get()
+        .and(warp::path!("polls"))
+        .and(pm_filter.clone())
+        .and_then(|poll_manager: Arc<Mutex<PollManager>>| async move {
+            let pm = poll_manager.lock().await;
+            let polls_json: Vec<Value> = pm.polls
+                .iter()
+                .map(|(poll_id, poll)| {
+                    match poll {
+                        Poll::Election { metadata, .. } => json!({
+                            "poll_id": poll_id,
+                            "title": metadata.title,
+                            "question": metadata.question,
+                            "options": metadata.options,
+                            "is_public": metadata.is_public,
+                            "poll_type": metadata.poll_type
+                        }),
+                        Poll::Normal { metadata, .. } => json!({
+                            "poll_id": poll_id,
+                            "title": metadata.title,
+                            "question": metadata.question,
+                            "options": metadata.options,
+                            "is_public": metadata.is_public,
+                            "poll_type": metadata.poll_type
+                        }),
+                    }
+                })
+                .collect();
 
-        // Build a JSON array with poll_id + metadata
-        let polls_json: Vec<Value> = pm.polls
-            .iter() // iter() yields (id, poll) pairs
-            .map(|(poll_id, poll)| {
-                match poll {
-                    Poll::Election { metadata, .. } => json!({
-                        "poll_id": poll_id,
-                        "title": metadata.title,
-                        "question": metadata.question,
-                        "options": metadata.options,
-                        "is_public": metadata.is_public,
-                        "poll_type": metadata.poll_type
-                    }),
-                    Poll::Normal { metadata, .. } => json!({
-                        "poll_id": poll_id,
-                        "title": metadata.title,
-                        "question": metadata.question,
-                        "options": metadata.options,
-                        "is_public": metadata.is_public,
-                        "poll_type": metadata.poll_type
-                    }),
-                }
-            })
-            .collect();
-
-        Ok::<_, Infallible>(warp::reply::json(&polls_json))
-    })
-    .with(cors.clone());
-
+            Ok::<_, Infallible>(warp::reply::json(&polls_json))
+        })
+        .with(cors.clone());
 
     let get_blockchain = warp::get()
         .and(warp::path("poll"))
@@ -382,12 +390,8 @@ let list_polls = warp::get()
         .and_then(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| async move {
             let pm = poll_manager.lock().await;
             let response = match pm.get_poll(&poll_id) {
-                Some(Poll::Election { blockchain, .. }) => {
-                    warp::reply::json(&blockchain.chain)
-                },
-                Some(Poll::Normal { blockchain, .. }) => {
-                    warp::reply::json(&blockchain.chain)
-                },
+                Some(Poll::Election { blockchain, .. }) => warp::reply::json(&blockchain.chain),
+                Some(Poll::Normal { blockchain, .. }) => warp::reply::json(&blockchain.chain),
                 None => warp::reply::json(&json!({ "error": "Poll not found" })),
             };
             Ok::<_, Infallible>(response)
@@ -453,7 +457,26 @@ let list_polls = warp::get()
             Ok::<_, Infallible>(response)
         })
         .with(cors.clone());
-    
+
+    let get_vote_counts_by_state = warp::get()
+        .and(warp::path("poll"))
+        .and(warp::path::param::<String>())
+        .and(warp::path("vote_counts_by_state"))
+        .and(pm_filter.clone())
+        .and_then(|poll_id: String, poll_manager: Arc<Mutex<PollManager>>| async move {
+            let pm = poll_manager.lock().await;
+            match pm.get_poll(&poll_id) {
+                Some(Poll::Election { blockchain, .. }) => {
+                    let results = blockchain.get_vote_counts_by_state();
+                    let json_resp = warp::reply::json(&json!({ "by_state": results }));
+                    Ok::<_, Infallible>(json_resp)
+                },
+                _ => {
+                    let err_resp = warp::reply::json(&json!({ "error": "Not an election poll or not found" }));
+                    Ok::<_, Infallible>(err_resp)
+                }
+            }
+        });
 
     let verify_vote = warp::get()
         .and(warp::path("poll"))
@@ -494,6 +517,11 @@ let list_polls = warp::get()
         })
         .with(cors.clone());
 
+    // Serve states-10m.json from data/
+    let serve_us_map = warp::path!("map" / "us_states")
+        .and(warp::get())
+        .and_then(serve_states_map);
+
     // OPTIONS for CORS
     let options = warp::options()
         .and(warp::path::full())
@@ -522,21 +550,21 @@ let list_polls = warp::get()
     let routes = user_routes
         .or(integrated_voting_routes)
         .or(poll_routes)
+        .or(get_vote_counts_by_state)
+        .or(serve_us_map) // The new route for states
         .or(options)
         .with(cors)
         .recover(handle_rejection);
 
-    // Server host/port
-    let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port = std::env::var("SERVER_PORT")
-        .map(|p| p.parse::<u16>().unwrap_or(3030))
-        .unwrap_or(3030);
-    
-    let addr: std::net::SocketAddr = format!("{}:{}", host, port)
-        .parse()
-        .expect("Invalid address");
-    
-    println!("🚀 API Server running on http://{}:{}", host, port);
+    // FIX parse error: specify type for addr
+    let addr: std::net::SocketAddr = format!("{}:{}", 
+        std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+        std::env::var("SERVER_PORT").map(|p| p.parse::<u16>().unwrap_or(3030)).unwrap_or(3030)
+    )
+    .parse()
+    .expect("Invalid address");
+
+    println!("🚀 API Server running on http://{}", addr);
     println!("🗄️ Database connected successfully");
     println!("🔗 Blockchain voting system with database integration is ready");
     

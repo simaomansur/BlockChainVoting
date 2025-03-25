@@ -68,8 +68,8 @@ const Navigation = () => {
           <Button color="inherit" component={Link} to="/">Home</Button>
           {voter ? (
             <>
-              <Button color="inherit" component={Link} to="/create">Create Poll</Button>
-              <Button color="inherit" component={Link} to="/polls">View Polls</Button>
+              <Button color="inherit" component={Link} to="/create">Create</Button>
+              <Button color="inherit" component={Link} to="/polls">Polls</Button>
               <Button color="inherit" component={Link} to="/election">Election</Button>
               <Button color="inherit" component={Link} to="/profile">Profile</Button>
               <Button color="inherit" onClick={logout}>Logout</Button>
@@ -103,7 +103,7 @@ const App = () => {
                   <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                   <Route path="/create" element={<ProtectedRoute><CreatePollPage /></ProtectedRoute>} />
                   <Route path="/polls" element={<ProtectedRoute><ExistingPollsPage /></ProtectedRoute>} />
-                  <Route path="/election" element={<ProtectedRoute><ElectionBallotPage /></ProtectedRoute>} />
+                  <Route path="/election" element={<ProtectedRoute><ElectionBallotPage pollId="election" /></ProtectedRoute>} />
                   <Route path="/poll/:pollId" element={<ProtectedRoute><PollDetailsPage /></ProtectedRoute>} />
                 </Routes>
               </Container>

@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use serde_json::{json, Value};
+use serde_json::{Value};
 use std::collections::HashMap;
 use crate::election_block::ElectionBlock;
 use sqlx::postgres::PgRow;
@@ -70,6 +70,26 @@ impl ElectionBlockchain {
             }
         }
         counts
+    }
+
+    pub fn get_vote_counts_by_state(&self) -> HashMap<String, HashMap<String, u32>> {
+        let mut result = HashMap::new();
+        for block in self.chain.iter().skip(1) {
+            if let Some(obj) = block.transactions.as_object() {
+                // Example: 
+                //   "state": "CA", 
+                //   "candidate": "Candidate A"
+                let state = obj.get("state").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                let candidate = obj.get("candidate").and_then(|v| v.as_str()).unwrap_or("N/A");
+                result
+                    .entry(state.to_string())
+                    .or_insert_with(HashMap::new)
+                    .entry(candidate.to_string())
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+            }
+        }
+        result
     }
 
     /// Searches the blockchain for a vote by a given voter ID.
