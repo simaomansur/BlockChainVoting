@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { createPoll } from "../api/api";
 import { VoterContext } from "../context/VoterContext";
 import {

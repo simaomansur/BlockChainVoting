@@ -1,6 +1,7 @@
+// src/components/VotePage.jsx
 import React, { useState, useEffect, useContext } from "react";
 import { useParams } from "react-router-dom";
-import { castVote, getPollDetails, getVoteCounts } from "../api/api";
+import { castVote, getPollDetails, getVoteCounts, getVoteVerification } from "../api/api";
 import { VoterContext } from "../context/VoterContext";
 import {
   Paper,
@@ -29,6 +30,7 @@ const VotePage = () => {
   const [loadingPoll, setLoadingPoll] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
 
   useEffect(() => {
     const fetchPollDetails = async () => {
@@ -38,6 +40,14 @@ const VotePage = () => {
           throw new Error("Poll not found or missing options.");
         }
         setPoll(pollData);
+
+        // If voter exists, check if they have already voted
+        if (voter && voter.voterId) {
+          const verification = await getVoteVerification(poll_id, voter.voterId);
+          if (verification && verification.hasVoted) {
+            setHasVoted(true);
+          }
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -46,13 +56,20 @@ const VotePage = () => {
     };
 
     fetchPollDetails();
-  }, [poll_id]);
+  }, [poll_id, voter]);
 
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // Prevent submission if no choice or voter is missing
     if (!selectedChoice || !voter || !voter.voterId) {
       setError("Your voter ID is missing or no choice selected.");
+      return;
+    }
+
+    // Prevent voting if already voted
+    if (hasVoted) {
+      setError("You have already voted in this poll.");
       return;
     }
 
@@ -61,7 +78,6 @@ const VotePage = () => {
     setSuccess(null);
 
     try {
-      // Fixed: Use "vote" as the payload key instead of "candidate"
       await castVote({
         poll_id,
         voter_id: voter.voterId,
@@ -71,6 +87,7 @@ const VotePage = () => {
 
       const counts = await getVoteCounts(poll_id);
       setVoteCounts(counts.vote_counts);
+      setHasVoted(true); // Mark as voted after successful submission
     } catch (err) {
       setError("Error submitting vote.");
     } finally {
@@ -102,47 +119,55 @@ const VotePage = () => {
       )}
 
       {poll && poll.options && (
-        <form onSubmit={handleVoteSubmit}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Voter ID"
-                value={voter?.voterId || ""}
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                {poll.question}
-              </Typography>
-              <RadioGroup
-                value={selectedChoice}
-                onChange={(e) => setSelectedChoice(e.target.value)}
-              >
-                {poll.options.map((option, index) => (
-                  <FormControlLabel
-                    key={index}
-                    value={option}
-                    control={<Radio />}
-                    label={option}
+        <>
+          {hasVoted ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              You have already voted in this poll.
+            </Alert>
+          ) : (
+            <form onSubmit={handleVoteSubmit}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Voter ID"
+                    value={voter?.voterId || ""}
+                    disabled
                   />
-                ))}
-              </RadioGroup>
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                fullWidth
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? "Submitting..." : "Submit Vote"}
-              </Button>
-            </Grid>
-          </Grid>
-        </form>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>
+                    {poll.question}
+                  </Typography>
+                  <RadioGroup
+                    value={selectedChoice}
+                    onChange={(e) => setSelectedChoice(e.target.value)}
+                  >
+                    {poll.options.map((option, index) => (
+                      <FormControlLabel
+                        key={index}
+                        value={option}
+                        control={<Radio />}
+                        label={option}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
+                <Grid item xs={12}>
+                  <Button
+                    fullWidth
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    disabled={loading}
+                  >
+                    {loading ? "Submitting..." : "Submit Vote"}
+                  </Button>
+                </Grid>
+              </Grid>
+            </form>
+          )}
+        </>
       )}
 
       {voteCounts && Object.keys(voteCounts).length > 0 ? (

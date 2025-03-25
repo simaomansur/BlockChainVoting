@@ -1,11 +1,22 @@
+// src/api/api.js
 import axios from "axios";
 
-const API_BASE_URL = "http://127.0.0.1:3030";
+// Use env variable if available; fallback to local
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:3030";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
 });
+
+// Global interceptor for error handling (optional but recommended)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Here you could log errors or transform them
+    return Promise.reject(error);
+  }
+);
 
 // User Management APIs
 export const registerUser = async (userData) =>

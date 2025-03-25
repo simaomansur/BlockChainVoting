@@ -453,6 +453,7 @@ let list_polls = warp::get()
             Ok::<_, Infallible>(response)
         })
         .with(cors.clone());
+    
 
     let verify_vote = warp::get()
         .and(warp::path("poll"))

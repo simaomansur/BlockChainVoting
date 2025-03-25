@@ -19,10 +19,20 @@ import {
   LinearProgress,
 } from "@mui/material";
 import { PieChart } from "@mui/x-charts/PieChart";
-import { castVote, getPollDetails, getVoteCounts } from "../api/api";
+
+// New libraries for effects
+import Confetti from "react-confetti";
+import { QRCodeCanvas } from "qrcode.react";
+
+// API calls
+import {
+  castVote,
+  getPollDetails,
+  getVoteCounts,
+  getVoteVerification,
+} from "../api/api";
 
 const PollDetailsPage = () => {
-  // 1) Identical logic
   const { pollId } = useParams();
   const { voter } = useContext(VoterContext);
 
@@ -34,23 +44,30 @@ const PollDetailsPage = () => {
   const [loadingVote, setLoadingVote] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
 
-  // 2) On mount, fetch poll details + existing counts
+  // Fetch poll details and vote counts (and optionally verify vote)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAllData = async () => {
+      setLoadingPoll(true);
+      setError(null);
       try {
-        const pollData = await getPollDetails(pollId);
+        const userId = voter?.voterId;
+        // Fetch poll details and vote counts; if user is logged in, also check if they've voted
+        const [pollData, countsData, verifyData] = await Promise.all([
+          getPollDetails(pollId),
+          getVoteCounts(pollId),
+          userId ? getVoteVerification(pollId, userId) : Promise.resolve(null),
+        ]);
+
         if (!pollData || !pollData.options) {
           throw new Error("Poll not found or missing options.");
         }
         setPoll(pollData);
 
-        const counts = await getVoteCounts(pollId);
-        if (counts && counts.vote_counts) {
-          setVoteCounts(counts.vote_counts);
-
-          // Build chartData from vote_counts
-          const formatted = Object.entries(counts.vote_counts).map(
+        if (countsData && countsData.vote_counts) {
+          setVoteCounts(countsData.vote_counts);
+          const formatted = Object.entries(countsData.vote_counts).map(
             ([option, count], idx) => ({
               id: idx,
               label: option,
@@ -59,43 +76,41 @@ const PollDetailsPage = () => {
           );
           setChartData(formatted);
         }
+
+        if (verifyData && verifyData.hasVoted) {
+          setHasVoted(true);
+        }
       } catch (err) {
-        setError(err.message);
+        setError(err.message || "Error fetching poll data.");
       } finally {
         setLoadingPoll(false);
       }
     };
 
-    fetchData();
-  }, [pollId]);
+    fetchAllData();
+  }, [pollId, voter]);
 
-  // 3) Submit a vote
+  // Handle vote submission
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
     if (!selectedChoice || !voter?.voterId) {
       setError("No choice selected or missing voter ID.");
       return;
     }
-
     setLoadingVote(true);
     setError(null);
     setSuccess(null);
-
     try {
-      // The backend expects "poll_id", "voter_id", and "vote"
       await castVote({
         poll_id: pollId,
         voter_id: voter.voterId,
         vote: selectedChoice,
       });
-
       setSuccess("Vote submitted successfully!");
-
-      // Re-fetch updated counts
-      const counts = await getVoteCounts(pollId);
-      if (counts && counts.vote_counts) {
-        setVoteCounts(counts.vote_counts);
-        const formatted = Object.entries(counts.vote_counts).map(
+      const countsData = await getVoteCounts(pollId);
+      if (countsData && countsData.vote_counts) {
+        setVoteCounts(countsData.vote_counts);
+        const formatted = Object.entries(countsData.vote_counts).map(
           ([option, count], idx) => ({
             id: idx,
             label: option,
@@ -104,154 +119,175 @@ const PollDetailsPage = () => {
         );
         setChartData(formatted);
       }
+      setHasVoted(true);
     } catch (err) {
-      setError("Error submitting vote.");
+      setError(err.message || "Error submitting vote.");
     } finally {
       setLoadingVote(false);
     }
   };
 
-  // 4) Calculate total votes for display
   const totalVotes = chartData.reduce((acc, item) => acc + item.value, 0);
+  const pollUrl = `${window.location.origin}/poll/${pollId}`;
+  const showConfetti = success !== null && success !== undefined;
 
   return (
     <Card
-      elevation={6}
+      elevation={10}
       sx={{
-        maxWidth: 800,
+        maxWidth: 650,
         margin: "auto",
-        mt: 4,
-        // For a more dramatic look, you can add a border or background
-        borderRadius: 2,
+        mt: 3,
+        borderRadius: 3,
+        overflow: "hidden",
+        background:
+          "linear-gradient(135deg, rgba(13,71,161,0.7) 0%, rgba(21,101,192,0.7) 100%)",
+        color: "#fff",
+        position: "relative",
       }}
     >
-      <CardContent>
-        {/* Title */}
+      {showConfetti && <Confetti recycle={false} numberOfPieces={300} />}
+      <CardContent sx={{ backdropFilter: "blur(8px)", backgroundColor: "rgba(0,0,0,0.3)", p: 3 }}>
         <Typography variant="h4" align="center" gutterBottom>
           {poll ? poll.title : "Loading Poll..."}
         </Typography>
-
-        {/* Loading indicator */}
-        {loadingPoll && (
-          <Box display="flex" justifyContent="center" my={2}>
-            <CircularProgress />
+        {poll && (
+          <Box textAlign="center" mb={2}>
+            <Typography variant="caption" sx={{ color: "#ddd" }}>
+              Poll ID: {poll.poll_id || pollId}
+            </Typography>
+            {poll.createdAt && (
+              <Typography variant="caption" sx={{ ml: 1, color: "#ddd" }}>
+                | Created on: {new Date(poll.createdAt).toLocaleDateString("en-US")}
+              </Typography>
+            )}
           </Box>
         )}
-
-        {/* Error / success messages */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+        {loadingPoll && (
+          <Box display="flex" justifyContent="center" my={2}>
+            <CircularProgress size={24} sx={{ color: "#fff" }} />
+          </Box>
         )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-
-        {/* Poll content */}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
         {poll && poll.options && !loadingPoll && (
           <>
             <Typography variant="h6" gutterBottom>
               {poll.question}
             </Typography>
-
-            {/* Optional poll description (if exists) */}
             {poll.description && (
-              <Typography variant="body1" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 {poll.description}
               </Typography>
             )}
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Voting Form */}
-            <form onSubmit={handleVoteSubmit}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Voter ID"
-                    value={voter?.voterId || ""}
-                    disabled
-                  />
+            <Divider sx={{ my: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+            {hasVoted && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                You have already voted in this poll.
+              </Alert>
+            )}
+            {!hasVoted && (
+              <form onSubmit={handleVoteSubmit}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Voter ID"
+                      value={voter?.voterId || ""}
+                      disabled
+                      sx={{
+                        input: { color: "#fff" },
+                        "& .Mui-disabled": { WebkitTextFillColor: "#ccc" },
+                        "& .MuiInputLabel-root": { color: "#ccc" },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <RadioGroup
+                      value={selectedChoice}
+                      onChange={(e) => setSelectedChoice(e.target.value)}
+                    >
+                      {poll.options.map((option, idx) => (
+                        <FormControlLabel
+                          key={idx}
+                          value={option}
+                          control={<Radio size="small" sx={{ color: "#fff" }} />}
+                          label={
+                            <Typography variant="body2" sx={{ color: "#fff" }}>
+                              {option}
+                            </Typography>
+                          }
+                        />
+                      ))}
+                    </RadioGroup>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      type="submit"
+                      variant="contained"
+                      disabled={loadingVote}
+                      size="medium"
+                      sx={{
+                        background: "linear-gradient(90deg, #0D47A1, #1565C0)",
+                        ":hover": {
+                          boxShadow: "0px 4px 12px rgba(255,255,255,0.3)",
+                          background: "linear-gradient(90deg, #0D47A1, #1565C0)",
+                        },
+                      }}
+                    >
+                      {loadingVote ? "Submitting..." : "Submit Vote"}
+                    </Button>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12}>
-                  <RadioGroup
-                    value={selectedChoice}
-                    onChange={(e) => setSelectedChoice(e.target.value)}
-                  >
-                    {poll.options.map((option, idx) => (
-                      <FormControlLabel
-                        key={idx}
-                        value={option}
-                        control={<Radio />}
-                        label={option}
-                      />
-                    ))}
-                  </RadioGroup>
-                </Grid>
-                <Grid item xs={12}>
-                  <Button
-                    fullWidth
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    disabled={loadingVote}
-                  >
-                    {loadingVote ? "Submitting..." : "Submit Vote"}
-                  </Button>
-                </Grid>
-              </Grid>
-            </form>
-
-            <Divider sx={{ my: 4 }} />
-
-            {/* Current results */}
+              </form>
+            )}
+            <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.2)" }} />
             {Object.keys(voteCounts).length > 0 ? (
               <Box textAlign="center">
-                <Typography variant="h5" gutterBottom>
+                <Typography variant="h6" gutterBottom>
                   Current Results
                 </Typography>
                 <PieChart
                   series={[
                     {
                       data: chartData,
-                      innerRadius: 70, // donut effect
+                      innerRadius: 60,
                       arcLabel: (item) => `${item.label}: ${item.value}`,
                     },
                   ]}
-                  width={400}
-                  height={400}
+                  width={320}
+                  height={320}
+                  sx={{ margin: "0 auto" }}
                 />
-
-                {/* Show total votes */}
-                <Typography variant="body1" sx={{ mt: 2 }}>
+                <Typography variant="body1" sx={{ mt: 1 }}>
                   Total Votes: {totalVotes}
                 </Typography>
-
-                {/* Detailed breakdown with progress bars */}
-                <Box sx={{ mt: 3, textAlign: "left", px: { xs: 2, sm: 8 } }}>
-                  <Typography variant="h6" gutterBottom>
+                <Box sx={{ mt: 2, textAlign: "left", px: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
                     Detailed Breakdown
                   </Typography>
                   {chartData.map((item) => {
-                    // Calculate percentage (avoid divide-by-zero)
                     const percentage =
-                      totalVotes > 0
-                        ? Math.round((item.value / totalVotes) * 100)
-                        : 0;
-
+                      totalVotes > 0 ? Math.round((item.value / totalVotes) * 100) : 0;
                     return (
-                      <Box key={item.id} sx={{ mb: 2 }}>
-                        <Typography variant="body1">
+                      <Box key={item.id} sx={{ mb: 1 }}>
+                        <Typography variant="caption" sx={{ color: "#eee" }}>
                           {item.label}: {item.value} votes ({percentage}%)
                         </Typography>
                         <LinearProgress
                           variant="determinate"
                           value={percentage}
-                          sx={{ height: 10, borderRadius: 5, mt: 1 }}
+                          sx={{
+                            height: 8,
+                            borderRadius: 4,
+                            mt: 0.5,
+                            backgroundColor: "rgba(255,255,255,0.1)",
+                            "& .MuiLinearProgress-bar": {
+                              backgroundColor: "#FFD700",
+                            },
+                          }}
                         />
                       </Box>
                     );
@@ -259,13 +295,22 @@ const PollDetailsPage = () => {
                 </Box>
               </Box>
             ) : (
-              // If we have loaded the poll but no votes exist
-              <Box mt={4}>
-                <Typography variant="h6" align="center">
+              <Box mt={2}>
+                <Typography variant="body1" align="center">
                   No votes recorded yet.
                 </Typography>
               </Box>
             )}
+            <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.2)" }} />
+            <Box mt={1} textAlign="center">
+              <Typography variant="subtitle2" gutterBottom>
+                Share This Poll
+              </Typography>
+              <QRCodeCanvas value={pollUrl} size={100} includeMargin={true} />
+              <Typography variant="caption" sx={{ mt: 1, display: "block" }}>
+                {pollUrl}
+              </Typography>
+            </Box>
           </>
         )}
       </CardContent>
