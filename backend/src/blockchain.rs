@@ -1,8 +1,6 @@
-use serde::{Serialize, Deserialize};
-use serde_json::{json, Value};
-use std::collections::HashMap;
 use crate::block::Block;
-use sqlx::postgres::PgRow;
+use serde::{Serialize, Deserialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Blockchain {
@@ -12,27 +10,17 @@ pub struct Blockchain {
 impl Blockchain {
     /// Creates a new blockchain with a genesis block.
     pub fn new() -> Self {
-        let genesis_block = Block::new(0, json!("Genesis Block"), "0".to_string());
-        Blockchain {
-            chain: vec![genesis_block],
-        }
-    }
-
-    /// Reconstructs a blockchain from a vector of database rows.
-    /// Assumes each row corresponds to a block in the "blocks" table.
-    pub fn from_db_rows(rows: Vec<PgRow>) -> Result<Self, sqlx::Error> {
-        let mut chain = Vec::new();
-        for row in rows {
-            let block = Block::from_db_row(&row)?;
-            chain.push(block);
-        }
-        Ok(Blockchain { chain })
+        let mut genesis_block = Block::new(0, serde_json::json!("Genesis Block"), "0".to_string());
+        // Finalize the genesis block to enforce immutability
+        genesis_block.finalize();
+        Blockchain { chain: vec![genesis_block] }
     }
 
     /// Adds a new block with a single transaction to the chain.
     pub fn add_block(&mut self, transaction: Value) {
         let previous_block = self.chain.last().unwrap();
-        let new_block = Block::new(previous_block.index as u32 + 1, transaction, previous_block.hash.clone());
+        let mut new_block = Block::new(previous_block.index as u32 + 1, transaction, previous_block.hash.clone());
+        new_block.finalize(); // Finalize immediately
         self.chain.push(new_block);
     }
 
@@ -66,14 +54,18 @@ impl Blockchain {
 
     /// Aggregates vote counts by iterating over transactions in each block.
     /// Assumes each transaction has a "candidate" field.
-    pub fn get_vote_counts(&self) -> HashMap<String, u32> {
-        let mut vote_counts: HashMap<String, u32> = HashMap::new();
+    pub fn get_vote_counts(&self) -> serde_json::Map<String, serde_json::Value> {
+        let mut vote_counts = serde_json::Map::new();
         for block in self.chain.iter().skip(1) {
             for transaction in &block.transactions {
                 if let Some(obj) = transaction.as_object() {
                     if let Some(candidate_val) = obj.get("candidate") {
                         if let Some(candidate) = candidate_val.as_str() {
-                            *vote_counts.entry(candidate.to_string()).or_insert(0) += 1;
+                            let count = vote_counts.entry(candidate.to_string())
+                                .or_insert(serde_json::json!(0));
+                            if let Some(n) = count.as_u64() {
+                                *count = serde_json::json!(n + 1);
+                            }
                         }
                     }
                 }

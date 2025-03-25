@@ -335,20 +335,44 @@ async fn main() {
     // --------------------------
     // Existing Poll Routes
     // --------------------------
-    let list_polls = warp::get()
-        .and(warp::path!("polls"))
-        .and(pm_filter.clone())
-        .and_then(|poll_manager: Arc<Mutex<PollManager>>| async move {
-            let pm = poll_manager.lock().await;
-            let polls: Vec<_> = pm.polls.values().map(|p| {
-                match p {
-                    Poll::Election { metadata, .. } => metadata.clone(),
-                    Poll::Normal { metadata, .. } => metadata.clone(),
+    use serde_json::{json, Value};
+use std::convert::Infallible;
+
+let list_polls = warp::get()
+    .and(warp::path!("polls"))
+    .and(pm_filter.clone())
+    .and_then(|poll_manager: Arc<Mutex<PollManager>>| async move {
+        let pm = poll_manager.lock().await;
+
+        // Build a JSON array with poll_id + metadata
+        let polls_json: Vec<Value> = pm.polls
+            .iter() // iter() yields (id, poll) pairs
+            .map(|(poll_id, poll)| {
+                match poll {
+                    Poll::Election { metadata, .. } => json!({
+                        "poll_id": poll_id,
+                        "title": metadata.title,
+                        "question": metadata.question,
+                        "options": metadata.options,
+                        "is_public": metadata.is_public,
+                        "poll_type": metadata.poll_type
+                    }),
+                    Poll::Normal { metadata, .. } => json!({
+                        "poll_id": poll_id,
+                        "title": metadata.title,
+                        "question": metadata.question,
+                        "options": metadata.options,
+                        "is_public": metadata.is_public,
+                        "poll_type": metadata.poll_type
+                    }),
                 }
-            }).collect();
-            Ok::<_, Infallible>(warp::reply::json(&polls))
-        })
-        .with(cors.clone());
+            })
+            .collect();
+
+        Ok::<_, Infallible>(warp::reply::json(&polls_json))
+    })
+    .with(cors.clone());
+
 
     let get_blockchain = warp::get()
         .and(warp::path("poll"))
@@ -429,6 +453,7 @@ async fn main() {
             Ok::<_, Infallible>(response)
         })
         .with(cors.clone());
+    
 
     let verify_vote = warp::get()
         .and(warp::path("poll"))

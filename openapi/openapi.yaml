@@ -1,4 +1,3 @@
-# openapi.yaml
 openapi: 3.0.0
 info:
   title: Blockchain Voting App API
@@ -6,7 +5,149 @@ info:
   description: API documentation for the Blockchain Voting App.
 servers:
   - url: http://127.0.0.1:3030
+
 paths:
+  ########################################
+  # User Management Endpoints
+  ########################################
+  /user/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  voterId:
+                    type: string
+                  name:
+                    type: string
+                example:
+                  status: "success"
+                  voterId: "abc123"
+                  name: "Alice"
+
+  /user/login:
+    post:
+      summary: Login an existing user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '200':
+          description: User logged in successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  voterId:
+                    type: string
+                  name:
+                    type: string
+                example:
+                  status: "success"
+                  voterId: "abc123"
+                  name: "Alice"
+
+  /user/{voterId}/profile:
+    get:
+      summary: Get user profile by voter ID
+      parameters:
+        - in: path
+          name: voterId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    put:
+      summary: Update user profile
+      parameters:
+        - in: path
+          name: voterId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /user/{voterId}/password:
+    put:
+      summary: Change user password
+      parameters:
+        - in: path
+          name: voterId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+      responses:
+        '200':
+          description: Password updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                example:
+                  status: "Password updated successfully"
+
+  ########################################
+  # Poll Management Endpoints
+  ########################################
+  /polls:
+    get:
+      summary: Retrieve list of all polls
+      responses:
+        '200':
+          description: List of polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PollData'
+
   /poll/create:
     post:
       summary: Create a new poll
@@ -28,37 +169,27 @@ paths:
                     type: string
                   poll_id:
                     type: string
-  /poll/vote:
-    post:
-      summary: Cast a vote for a poll
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VoteInput'
-      responses:
-        '200':
-          description: Vote added successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-  /polls:
+                example:
+                  status: "success"
+                  poll_id: "poll123"
+
+  /poll/{poll_id}/details:
     get:
-      summary: Retrieve list of polls
+      summary: Get details for a specific poll
+      parameters:
+        - in: path
+          name: poll_id
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: List of polls
+          description: Details about the poll
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PollInput'
+                $ref: '#/components/schemas/PollData'
+
   /poll/{poll_id}/blockchain:
     get:
       summary: Retrieve blockchain for a specific poll
@@ -71,6 +202,31 @@ paths:
       responses:
         '200':
           description: Blockchain data for the poll
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chain:
+                    type: array
+                    items:
+                      type: object
+                example:
+                  chain:
+                    - index: 0
+                      timestamp: "2023-01-01T12:00:00"
+                      votes: []
+                      previousHash: "0"
+                      hash: "xyz123"
+                    - index: 1
+                      timestamp: "2023-01-02T09:15:00"
+                      votes:
+                        - poll_id: "poll123"
+                          voter_id: "abc123"
+                          candidate: "Option A"
+                      previousHash: "xyz123"
+                      hash: "abc456"
+
   /poll/{poll_id}/validity:
     get:
       summary: Check blockchain validity for a specific poll
@@ -90,6 +246,9 @@ paths:
                 properties:
                   valid:
                     type: boolean
+                example:
+                  valid: true
+
   /poll/{poll_id}/vote_counts:
     get:
       summary: Retrieve vote counts for a poll
@@ -111,9 +270,195 @@ paths:
                     type: object
                     additionalProperties:
                       type: integer
+                example:
+                  vote_counts:
+                    "Option A": 10
+                    "Option B": 5
+                    "Option C": 2
+
+  /poll/{poll_id}/results:
+    get:
+      summary: Retrieve summarized results for a poll
+      parameters:
+        - in: path
+          name: poll_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Results for the poll
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResults'
+              examples:
+                sample:
+                  summary: Sample poll results
+                  value:
+                    pollId: "poll123"
+                    results:
+                      - option: "Option A"
+                        votes: 10
+                      - option: "Option B"
+                        votes: 5
+                      - option: "Option C"
+                        votes: 2
+
+  ########################################
+  # Vote Management Endpoints
+  ########################################
+  /vote:
+    post:
+      summary: Cast a vote for a poll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteInput'
+      responses:
+        '200':
+          description: Vote added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                example:
+                  status: "Vote cast successfully"
+
+  /vote/{pollId}/{voterId}/verify:
+    get:
+      summary: Verify if a voter has cast a vote in a poll
+      parameters:
+        - in: path
+          name: pollId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: voterId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasVoted:
+                    type: boolean
+                example:
+                  hasVoted: true
+
+  /poll/{pollId}/verify_vote/{voterId}:
+    get:
+      summary: Legacy verification method (maintained for backward compatibility)
+      parameters:
+        - in: path
+          name: pollId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: voterId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification result (legacy method)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasVoted:
+                    type: boolean
+                example:
+                  hasVoted: false
+
 components:
   schemas:
-    PollInput:
+    ########################################
+    # User-Related Schemas
+    ########################################
+    UserRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+        voterId:
+          type: string
+        password:
+          type: string
+      required:
+        - name
+        - voterId
+        - password
+      example:
+        name: "Alice"
+        voterId: "alice123"
+        password: "password123"
+
+    UserLogin:
+      type: object
+      properties:
+        voterId:
+          type: string
+        password:
+          type: string
+      required:
+        - voterId
+        - password
+      example:
+        voterId: "alice123"
+        password: "password123"
+
+    UserProfile:
+      type: object
+      properties:
+        voterId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+      required:
+        - voterId
+        - name
+      example:
+        voterId: "alice123"
+        name: "Alice"
+        email: "alice@example.com"
+        address: "123 Main St"
+
+    PasswordChange:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+      required:
+        - oldPassword
+        - newPassword
+      example:
+        oldPassword: "oldPass123"
+        newPassword: "newPass123"
+
+    ########################################
+    # Poll-Related Schemas
+    ########################################
+    PollData:
       type: object
       properties:
         poll_id:
@@ -128,6 +473,66 @@ components:
             type: string
         is_public:
           type: boolean
+        createdBy:
+          type: string
+      example:
+        poll_id: "poll123"
+        title: "Favorite Fruit"
+        question: "Which fruit do you like most?"
+        options: ["Apple", "Banana", "Cherry"]
+        is_public: true
+        createdBy: "alice123"
+
+    PollInput:
+      type: object
+      properties:
+        title:
+          type: string
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        is_public:
+          type: boolean
+      required:
+        - title
+        - question
+        - options
+      example:
+        title: "Favorite Fruit"
+        question: "Which fruit do you like most?"
+        options: ["Apple", "Banana", "Cherry"]
+        is_public: true
+
+    PollResults:
+      type: object
+      properties:
+        pollId:
+          type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              option:
+                type: string
+              votes:
+                type: integer
+      example:
+        pollId: "poll123"
+        results:
+          - option: "Apple"
+            votes: 10
+          - option: "Banana"
+            votes: 5
+          - option: "Cherry"
+            votes: 2
+
+    ########################################
+    # Vote-Related Schemas
+    ########################################
     VoteInput:
       type: object
       properties:
@@ -135,5 +540,13 @@ components:
           type: string
         voter_id:
           type: string
-        candidate:
+        vote:
           type: string
+      required:
+        - poll_id
+        - voter_id
+        - candidate
+      example:
+        poll_id: "poll123"
+        voter_id: "alice123"
+        candidate: "Apple"

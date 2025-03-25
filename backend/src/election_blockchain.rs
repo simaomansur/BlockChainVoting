@@ -12,7 +12,7 @@ pub struct ElectionBlockchain {
 impl ElectionBlockchain {
     /// Creates a new election blockchain with a genesis block.
     pub fn new() -> Self {
-        let genesis_block = ElectionBlock::new(0, json!("Genesis Block"), "0".to_string());
+        let genesis_block = ElectionBlock::new(0, serde_json::json!("Genesis Block"), "0".to_string());
         ElectionBlockchain {
             chain: vec![genesis_block],
         }
@@ -44,9 +44,7 @@ impl ElectionBlockchain {
         for i in 1..self.chain.len() {
             let current = &self.chain[i];
             let previous = &self.chain[i - 1];
-            if !current.verify_block_integrity() ||
-               current.previous_hash != previous.hash ||
-               current.index != previous.index + 1 {
+            if !current.verify_block_integrity() || current.previous_hash != previous.hash || current.index != previous.index + 1 {
                 return false;
             }
         }
@@ -62,8 +60,7 @@ impl ElectionBlockchain {
             if let Some(vote_obj) = block.transactions.as_object() {
                 if let Some(candidate_val) = vote_obj.get("candidate") {
                     if let Some(candidate) = candidate_val.as_str() {
-                        counts
-                            .entry("default".to_string())
+                        counts.entry("default".to_string())
                             .or_insert_with(HashMap::new)
                             .entry(candidate.to_string())
                             .and_modify(|c| *c += 1)

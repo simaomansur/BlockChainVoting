@@ -1,4 +1,3 @@
-// backend/src/vote_service.rs
 use sqlx::{Pool, Postgres};
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
@@ -49,9 +48,8 @@ impl VoteService {
         Self { pool }
     }
 
-    // Record a vote in the database
+    /// Record a vote in the database.
     pub async fn record_vote(&self, vote_request: VoteRequest) -> Result<VoteRecord, VoteServiceError> {
-        // Check if the voter has already voted in this poll
         let existing_vote = sqlx::query_scalar::<_, i32>("SELECT id FROM votes WHERE poll_id = $1 AND voter_id = $2")
             .bind(&vote_request.poll_id)
             .bind(&vote_request.voter_id)
@@ -59,19 +57,18 @@ impl VoteService {
             .await
             .map_err(|e| VoteServiceError::DatabaseError(e.to_string()))?;
 
-            if existing_vote.is_some() {
-                return Err(VoteServiceError::AlreadyVoted(
-                    format!("Voter {} has already voted in poll {}", vote_request.voter_id, vote_request.poll_id)
-                ));
-            }
+        if existing_vote.is_some() {
+            return Err(VoteServiceError::AlreadyVoted(
+                format!("Voter {} has already voted in poll {}", vote_request.voter_id, vote_request.poll_id)
+            ));
+        }
 
-        // Insert the vote into the database
         let vote_record = sqlx::query_as::<_, VoteRecord>(
             r#"
             INSERT INTO votes (poll_id, voter_id, vote)
             VALUES ($1, $2, $3)
             RETURNING id, poll_id, voter_id, vote, created_at
-            "#,
+            "#
         )
         .bind(&vote_request.poll_id)
         .bind(&vote_request.voter_id)
@@ -83,10 +80,10 @@ impl VoteService {
         Ok(vote_record)
     }
 
-    // Get votes for a specific poll
+    /// Get votes for a specific poll.
     pub async fn get_poll_votes(&self, poll_id: &str) -> Result<Vec<VoteRecord>, VoteServiceError> {
         let votes = sqlx::query_as::<_, VoteRecord>(
-            "SELECT id, poll_id, voter_id, vote, created_at FROM votes WHERE poll_id = $1",
+            "SELECT id, poll_id, voter_id, vote, created_at FROM votes WHERE poll_id = $1"
         )
         .bind(poll_id)
         .fetch_all(&self.pool)
@@ -96,10 +93,10 @@ impl VoteService {
         Ok(votes)
     }
 
-    // Get vote by voter_id and poll_id
+    /// Get a vote by voter_id and poll_id.
     pub async fn get_vote(&self, poll_id: &str, voter_id: &str) -> Result<Option<VoteRecord>, VoteServiceError> {
         let vote = sqlx::query_as::<_, VoteRecord>(
-            "SELECT id, poll_id, voter_id, vote, created_at FROM votes WHERE poll_id = $1 AND voter_id = $2",
+            "SELECT id, poll_id, voter_id, vote, created_at FROM votes WHERE poll_id = $1 AND voter_id = $2"
         )
         .bind(poll_id)
         .bind(voter_id)
@@ -110,59 +107,50 @@ impl VoteService {
         Ok(vote)
     }
 
-    // Get vote counts for a poll
+    /// Get vote counts for a poll.
     pub async fn get_vote_counts(&self, poll_id: &str) -> Result<Value, VoteServiceError> {
         let votes = self.get_poll_votes(poll_id).await?;
-        
-        // This is a simple implementation that assumes votes are stored as strings or simple JSON
-        // For more complex vote structures, you would need to adjust this logic
         let mut counts = HashMap::new();
-        
         for vote in votes {
-            // Handle different vote JSON structures
             let key = match vote.vote {
                 Value::String(s) => s,
-                Value::Object(ref obj) => {  // <-- Add 'ref' here
-                    // If the vote is a JSON object, try to extract a "candidate" field or similar
+                Value::Object(ref obj) => {
                     if let Some(Value::String(candidate)) = obj.get("candidate") {
                         candidate.clone()
                     } else if let Some(Value::String(choice)) = obj.get("choice") {
                         choice.clone()
                     } else {
-                        // If no clear candidate field, use the stringified JSON
                         serde_json::to_string(&vote.vote).unwrap_or_else(|_| "unknown".to_string())
                     }
                 },
                 _ => serde_json::to_string(&vote.vote).unwrap_or_else(|_| "unknown".to_string()),
             };
-            
             *counts.entry(key).or_insert(0) += 1;
         }
-        
-        // Convert the HashMap to a JSON value
         Ok(json!(counts))
     }
 
-    // Check if a voter has already voted in a specific poll
+    /// Check if a voter has already voted in a specific poll.
     pub async fn has_voted(&self, poll_id: &str, voter_id: &str) -> Result<bool, VoteServiceError> {
         let exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM votes WHERE poll_id = $1 AND voter_id = $2)")
-            .bind(poll_id)
-            .bind(voter_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| VoteServiceError::DatabaseError(e.to_string()))?;
+            "SELECT EXISTS(SELECT 1 FROM votes WHERE poll_id = $1 AND voter_id = $2)"
+        )
+        .bind(poll_id)
+        .bind(voter_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| VoteServiceError::DatabaseError(e.to_string()))?;
     
         Ok(exists)
     }
 
-    // Get all polls that have votes
+    /// Get all polls that have votes.
     pub async fn get_active_polls(&self) -> Result<Vec<String>, VoteServiceError> {
         let poll_ids = sqlx::query_scalar::<_, String>("SELECT DISTINCT poll_id FROM votes")
             .fetch_all(&self.pool)
             .await
             .map_err(|e| VoteServiceError::DatabaseError(e.to_string()))?;
-
+    
         Ok(poll_ids)
     }
 }
