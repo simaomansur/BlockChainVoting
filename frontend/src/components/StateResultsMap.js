@@ -1,5 +1,5 @@
 // src/components/StateResultsMap.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
 import { geoAlbersUsa } from "d3-geo";
 import {
@@ -19,8 +19,8 @@ const StateResultsMap = ({ pollId = "election" }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Function to load both the map and the state-level results
-  const loadAll = async () => {
+  // Wrap loadAll in useCallback so that its reference doesn't change on every render.
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -53,11 +53,11 @@ const StateResultsMap = ({ pollId = "election" }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pollId]);
 
   useEffect(() => {
     loadAll();
-  }, [pollId, loadAll]);
+  }, [loadAll]);
 
   const getLeadingCandidate = (stateCode) => {
     if (!byState || !byState[stateCode]) return null;
@@ -70,10 +70,14 @@ const StateResultsMap = ({ pollId = "election" }) => {
 
   const colorForCandidate = (candidate) => {
     switch (candidate) {
-      case "Candidate A": return "#FF0000"; // red
-      case "Candidate B": return "#0000FF"; // blue
-      case "Candidate C": return "#008000"; // green
-      default: return "#DDDDDD"; // gray
+      case "Candidate A":
+        return "#FF0000"; // red
+      case "Candidate B":
+        return "#0000FF"; // blue
+      case "Candidate C":
+        return "#008000"; // green
+      default:
+        return "#DDDDDD"; // gray
     }
   };
 
