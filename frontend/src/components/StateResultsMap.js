@@ -57,7 +57,7 @@ const StateResultsMap = ({ pollId = "election" }) => {
 
   useEffect(() => {
     loadAll();
-  }, [pollId]);
+  }, [pollId, loadAll]);
 
   const getLeadingCandidate = (stateCode) => {
     if (!byState || !byState[stateCode]) return null;

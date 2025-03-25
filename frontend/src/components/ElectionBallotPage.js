@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useContext } from "react";
-import { useParams } from "react-router-dom"; // For dynamic pollId
 import {
   Paper,
   Typography,
