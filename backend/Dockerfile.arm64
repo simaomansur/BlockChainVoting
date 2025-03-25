@@ -13,6 +13,12 @@ COPY Cargo.toml ./Cargo.toml
 
 # Copy source code and migrations
 COPY src/ ./src/
+COPY data/ ./data/
+
+# Debug lines:
+RUN echo "DEBUG: listing /build directory" && ls -l /build && \
+    echo "DEBUG: listing /build/data" && ls -l /build/data || echo "No data folder"
+
 COPY migrations/ ./migrations/
 
 # Build the application with ARM64 target
@@ -32,6 +38,12 @@ WORKDIR /backend
 COPY --from=builder /build/target/aarch64-unknown-linux-musl/release/backend /backend/backend
 # Copy migrations
 COPY --from=builder /build/migrations /backend/migrations
+
+COPY --from=builder /build/data /backend/data 
+
+RUN echo "DEBUG: listing /backend/data in final" && \
+    ls -l /backend/data || echo "No data folder"
+ 
 
 # Make binary executable
 RUN chmod +x /backend/backend

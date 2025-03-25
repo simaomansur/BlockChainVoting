@@ -13,6 +13,7 @@ COPY Cargo.toml ./Cargo.toml
 
 # Copy source code and migrations
 COPY src/ ./src/
+COPY data/ ./data/
 COPY migrations/ ./migrations/
 
 # List current directory to debug
@@ -38,6 +39,8 @@ WORKDIR /backend
 COPY --from=builder /build/target/release/backend /backend/backend
 # Copy migrations
 COPY --from=builder /build/migrations /backend/migrations
+
+COPY --from=builder /build/data /backend/data
 
 # Make binary executable
 RUN chmod +x /backend/backend

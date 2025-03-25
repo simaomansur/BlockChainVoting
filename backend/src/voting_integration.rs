@@ -56,7 +56,11 @@ impl VotingIntegration {
             match pm.get_poll(poll_id) {
                 Some(Poll::Election { .. }) => "election",
                 Some(Poll::Normal { .. }) => "normal",
-                None => return Err(VotingError::ValidationError(format!("Poll {} does not exist", poll_id))),
+                None => {
+                    return Err(VotingError::ValidationError(format!(
+                        "Poll {} does not exist", poll_id
+                    )))
+                }
             }
         };
 
@@ -69,7 +73,8 @@ impl VotingIntegration {
         }
 
         // Process vote data consistently into a structured JSON object
-        let processed_vote = if vote_data.is_string() {
+        // We'll store the poll_type in the final JSON so we can see it in the transaction
+        let mut processed_vote = if vote_data.is_string() {
             json!({
                 "voter_id": voter_id,
                 "candidate": vote_data.as_str().unwrap()
@@ -91,6 +96,11 @@ impl VotingIntegration {
                 "candidate": serde_json::to_string(&vote_data).unwrap_or("unknown".to_string())
             })
         };
+
+        // Insert the poll_type into the processed vote
+        if let Some(obj) = processed_vote.as_object_mut() {
+            obj.insert("poll_type".to_string(), Value::String(poll_type.to_string()));
+        }
 
         // Add vote to blockchain using the processed vote
         {
