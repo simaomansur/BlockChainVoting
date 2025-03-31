@@ -17,23 +17,14 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
     try {
-      // Call API to login user
-      const response = await loginUser({ 
-        email, 
-        password 
-      });
-      
-      // Save voter info in context
+      const response = await loginUser({ email, password });
       setVoter({
         voterId: response.user.voter_id,
         name: response.user.name,
         zip: response.user.zip_code,
-        birthdate: response.user.birth_date
+        birthdate: response.user.birth_date,
       });
-      
-      // Redirect to home
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed. Please check your credentials.");
@@ -43,17 +34,23 @@ const LoginPage = () => {
   };
 
   return (
-    <Paper sx={{ maxWidth: 400, margin: "auto", padding: 4, mt: 4 }}>
-      <Typography variant="h5" align="center" gutterBottom>
+    <Paper
+      sx={{
+        maxWidth: 400,
+        margin: "auto",
+        padding: 4,
+        mt: 4,
+        borderRadius: 2,
+      }}
+    >
+      <Typography variant="h5" align="center" gutterBottom sx={{ fontWeight: 700 }}>
         Voter Login
       </Typography>
-      
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2, backgroundColor: "rgba(255,0,0,0.1)", color: "#FFFFFF" }}>
           {error}
         </Alert>
       )}
-      
       <Box component="form" onSubmit={handleLogin} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
           label="Email"
@@ -62,6 +59,7 @@ const LoginPage = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          sx={{ "& .MuiInputLabel-root": { color: "#B0BEC5" } }}
         />
         <TextField
           label="Password"
@@ -70,21 +68,21 @@ const LoginPage = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          sx={{ "& .MuiInputLabel-root": { color: "#B0BEC5" } }}
         />
-        <Button 
-          variant="contained" 
-          color="primary" 
-          type="submit" 
+        <Button
+          variant="contained"
+          color="primary"
+          type="submit"
           disabled={loading}
-          sx={{ mt: 1 }}
+          sx={{ borderRadius: 2, fontWeight: 600, ":hover": { backgroundColor: "#64B5F6" } }}
         >
-          {loading ? <CircularProgress size={24} /> : "Login"}
+          {loading ? <CircularProgress size={24} sx={{ color: "#000000" }} /> : "Login"}
         </Button>
-        
         <Box sx={{ mt: 2, textAlign: "center" }}>
           <Typography variant="body2">
             Don't have an account?{" "}
-            <Link to="/register" style={{ textDecoration: "none", color: "primary" }}>
+            <Link to="/register" style={{ textDecoration: "none", color: "#2196F3" }}>
               Register here
             </Link>
           </Typography>

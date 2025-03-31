@@ -42,7 +42,11 @@ export const createPoll = async (pollData) =>
   api.post("/poll/create", pollData).then((res) => res.data);
 
 export const getPollDetails = async (pollId) =>
-  api.get(`/poll/${pollId}/details`).then((res) => res.data);
+  api.get(`/poll/${pollId}/details?ts=${new Date().getTime()}`)
+    .then((res) => res.data);
+
+export const getTrendingPolls = async () =>
+  api.get("/polls/trending").then((res) => res.data);
 
 export const getBlockchain = async (pollId) =>
   api.get(`/poll/${pollId}/blockchain`).then((res) => res.data);
