@@ -12,72 +12,190 @@ import ExistingPollsPage from "./components/ExistingPollsPage";
 import ElectionBallotPage from "./components/ElectionBallotPage";
 import PollDetailsPage from "./components/PollDetailsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AppBar, Toolbar, Button, Typography, Box, Container } from "@mui/material";
-import { VoterContext } from "./context/VoterContext";
-import { createTheme, ThemeProvider, CssBaseline } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
-const darkBlueTheme = createTheme({
+import { AppBar, Toolbar, Button, Typography, Box, Container, CssBaseline } from "@mui/material";
+import { VoterContext } from "./context/VoterContext";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+import "./App.css";
+
+/*
+  MONOCHROMATIC BLUE THEME:
+  - Background: #1B2A41 (dark slate-blue)
+  - Paper (cards/nav): #223549 (slightly lighter blue)
+  - Accent (buttons/links): #2979FF
+  - Text primary: #FFFFFF
+  - Text secondary: #BCCCDC
+  - Smaller corners (4px)
+*/
+const customTheme = createTheme({
   palette: {
     mode: "dark",
-    primary: { main: "#0D47A1" },
-    secondary: { main: "#1565C0" },
-    background: { default: "#0A1929", paper: "#0F2137" },
-    text: { primary: "#FFFFFF", secondary: alpha("#FFFFFF", 0.7) },
+    primary: { main: "#42A5F5" }, // Slightly softer blue than #2979FF
+    secondary: { main: '#81D4FA'}, // Lighter blue for secondary actions/accents
+    background: {
+      default: "#0D1B2A", // Darker navy base
+      paper: "#1B2E44",   // Slightly lighter navy for cards/nav
+    },
+    text: {
+      primary: "#E0E0E0", // Slightly off-white for better readability
+      secondary: "#A0B0C0", // Softer grey for secondary text
+    },
+    divider: 'rgba(255, 255, 255, 0.12)', // Subtle divider color
+  },
+  shape: {
+    borderRadius: 8, // Slightly more rounded corners
   },
   typography: {
     fontFamily: "Inter, Roboto, sans-serif",
-    h6: { fontWeight: 600, letterSpacing: "0.5px" },
-    h4: { fontWeight: 700, letterSpacing: "0.5px" },
-    button: { textTransform: "none", fontWeight: 600 },
+    h3: { fontWeight: 700, letterSpacing: "0.2px" },
+    h4: { fontWeight: 700, letterSpacing: "0.3px" },
+    h5: { fontWeight: 600, letterSpacing: "0.2px" },
+    h6: { fontWeight: 600, letterSpacing: "0.2px" },
+    body1: { fontSize: "1rem", lineHeight: 1.6 },
+    body2: { fontSize: "0.875rem", lineHeight: 1.5, color: '#A0B0C0' },
+    button: { textTransform: "none", fontWeight: 600, fontSize: '0.9rem' },
   },
-  shape: { borderRadius: 10 },
   components: {
-    MuiButton: {
+    MuiAppBar: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
-          boxShadow: "none",
-          ":hover": { boxShadow: "0px 4px 12px rgba(0,0,0,0.2)" },
+          backgroundColor: "#1B2E44", // matches paper color
+          boxShadow: "0 1px 3px rgba(0,0,0,0.3)", // Softer shadow
+          borderBottom: '1px solid rgba(255, 255, 255, 0.12)', // Add subtle border
         },
+      },
+    },
+    MuiToolbar: {
+      styleOverrides: {
+        root: { minHeight: "60px", padding: "0 1.5rem" }, // Slightly taller toolbar
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: ({ ownerState }) => ({
+           borderRadius: 8, // Match global shape
+           padding: '8px 22px', // Adjust padding slightly
+           transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+           boxShadow: 'none', // Start with no shadow
+           '&:hover': {
+              boxShadow: ownerState.variant === 'contained' ? '0 4px 12px rgba(0, 0, 0, 0.2)' : 'none', // Add shadow on hover for contained
+              backgroundColor: ownerState.variant !== 'text' ? undefined : 'rgba(255, 255, 255, 0.08)', // Standard text hover
+           },
+        }),
+        // Keep text button simple
+        text: {
+          color: "#E0E0E0",
+          padding: '8px 16px',
+          '&:hover': {
+             backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          }
+        },
+        containedPrimary: {
+           '&:hover': {
+              backgroundColor: '#3A9AE4' // Slightly darker hover for primary
+           }
+        }
       },
     },
     MuiPaper: {
       styleOverrides: {
-        elevation3: { boxShadow: "0 4px 20px rgba(0,0,0,0.15)" },
+        root: {
+          backgroundColor: "#1B2E44",
+          backgroundImage: 'none', // Ensure no gradient artifact if present before
+          border: '1px solid rgba(255, 255, 255, 0.1)', // Subtle border for definition
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' // Add a default subtle shadow
+        },
       },
     },
+    MuiCard: { // Also style Card consistently
+       styleOverrides: {
+        root: {
+          backgroundColor: "#1B2E44",
+          backgroundImage: 'none',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+        }
+       }
+    },
+     MuiTextField: {
+      defaultProps: {
+        variant: 'outlined', // Default to outlined
+      },
+      styleOverrides: {
+         root: {
+            '& .MuiOutlinedInput-root': {
+               '& fieldset': {
+                  borderColor: 'rgba(255, 255, 255, 0.23)', // Lighter default border
+               },
+               '&:hover fieldset': {
+                  borderColor: 'rgba(255, 255, 255, 0.5)', // Brighter border on hover
+               },
+               '&.Mui-focused fieldset': {
+                  borderColor: '#42A5F5', // Primary color border when focused
+               },
+            },
+            '& .MuiInputLabel-root': { // Style label
+               color: '#A0B0C0',
+            },
+             '& .MuiInputLabel-root.Mui-focused': { // Style label when focused
+               color: '#42A5F5',
+            }
+         }
+      }
+    },
+    MuiLink: { // Style links
+       styleOverrides: {
+          root: {
+             color: '#81D4FA', // Use secondary light blue for links
+             textDecoration: 'none',
+             '&:hover': {
+                textDecoration: 'underline',
+             }
+          }
+       }
+    }
   },
 });
 
 const Navigation = () => {
   const { voter, logout } = useContext(VoterContext);
+
   return (
-    <AppBar
-      position="static"
-      sx={{
-        background: "linear-gradient(45deg, #0D47A1 30%, #1565C0 90%)",
-        boxShadow: "0 4px 15px rgba(13,71,161,0.4)",
-      }}
-    >
+    <AppBar position="static">
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{ flexGrow: 1, fontWeight: 700 }}>
           Blockchain Voting
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button color="inherit" component={Link} to="/">Home</Button>
+          <Button variant="text" color="inherit" component={Link} to="/">
+            Home
+          </Button>
           {voter ? (
             <>
-              <Button color="inherit" component={Link} to="/create">Create</Button>
-              <Button color="inherit" component={Link} to="/polls">Polls</Button>
-              <Button color="inherit" component={Link} to="/election">Election</Button>
-              <Button color="inherit" component={Link} to="/profile">Profile</Button>
-              <Button color="inherit" onClick={logout}>Logout</Button>
+              <Button variant="text" color="inherit" component={Link} to="/create">
+                Create
+              </Button>
+              <Button variant="text" color="inherit" component={Link} to="/polls">
+                Polls
+              </Button>
+              <Button variant="text" color="inherit" component={Link} to="/election">
+                Election
+              </Button>
+              <Button variant="text" color="inherit" component={Link} to="/profile">
+                Profile
+              </Button>
+              <Button variant="text" color="inherit" onClick={logout}>
+                Logout
+              </Button>
             </>
           ) : (
             <>
-              <Button color="inherit" component={Link} to="/login">Login</Button>
-              <Button color="inherit" component={Link} to="/register">Register</Button>
+              <Button variant="text" color="inherit" component={Link} to="/login">
+                Login
+              </Button>
+              <Button variant="text" color="inherit" component={Link} to="/register">
+                Register
+              </Button>
             </>
           )}
         </Box>
@@ -86,33 +204,64 @@ const Navigation = () => {
   );
 };
 
-const App = () => {
-  return (
-    <ThemeProvider theme={darkBlueTheme}>
-      <CssBaseline />
-      <VoterProvider>
-        <PollProvider>
-          <Router>
-            <div>
-              <Navigation />
-              <Container sx={{ mt: 4 }}>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                  <Route path="/create" element={<ProtectedRoute><CreatePollPage /></ProtectedRoute>} />
-                  <Route path="/polls" element={<ProtectedRoute><ExistingPollsPage /></ProtectedRoute>} />
-                  <Route path="/election" element={<ProtectedRoute><ElectionBallotPage pollId="election" /></ProtectedRoute>} />
-                  <Route path="/poll/:pollId" element={<ProtectedRoute><PollDetailsPage /></ProtectedRoute>} />
-                </Routes>
-              </Container>
-            </div>
-          </Router>
-        </PollProvider>
-      </VoterProvider>
-    </ThemeProvider>
-  );
-};
+const App = () => (
+  <ThemeProvider theme={customTheme}>
+    <CssBaseline />
+    <VoterProvider>
+      <PollProvider>
+        <Router>
+          <Navigation />
+          <Container sx={{ mt: 4 }}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/create"
+                element={
+                  <ProtectedRoute>
+                    <CreatePollPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/polls"
+                element={
+                  <ProtectedRoute>
+                    <ExistingPollsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/election"
+                element={
+                  <ProtectedRoute>
+                    <ElectionBallotPage pollId="election" />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/poll/:pollId"
+                element={
+                  <ProtectedRoute>
+                    <PollDetailsPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Container>
+        </Router>
+      </PollProvider>
+    </VoterProvider>
+  </ThemeProvider>
+);
 
 export default App;

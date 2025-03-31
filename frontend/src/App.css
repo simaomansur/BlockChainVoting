@@ -1,116 +1,50 @@
 /* src/App.css */
-/* Global styles */
+
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  font-size: 14px; /* Reduced for a sharper look */
+  font-family: 'Inter', Roboto, sans-serif;
+  background-color: #0c1729;
+  color: #FFFFFF;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0A1929; /* Dark blue background */
-  color: #FFFFFF; /* Default text color */
 }
 
-/* App container */
 .App {
   text-align: center;
 }
 
-/* Brand styling */
-.brand-logo {
-  height: 40px;
-  margin-right: 10px;
-}
-
-/* Form styling */
-.form-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.form-field {
-  margin-bottom: 20px;
-}
-
-/* Poll item styling */
+/* If you have any poll listings or items */
 .poll-item {
-  border: 1px solid #324A5E; /* Darker border for dark mode */
-  border-radius: 8px; /* Increased border-radius */
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
   padding: 15px;
   margin-bottom: 15px;
+  background-color: #223549;
   transition: box-shadow 0.3s ease;
-  background-color: #0F2137; /* Paper background from the theme */
 }
 
 .poll-item:hover {
-  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .poll-item-title {
-  font-size: 1.1rem; /* Slightly reduced */
-  font-weight: 500;
+  font-size: 1.1rem;
+  font-weight: 600;
   margin-bottom: 8px;
-  color: #FFFFFF;
 }
 
 .poll-item-description {
-  color: #AAAAAA; /* Softer text for descriptions */
+  color: #BCCCDC;
   margin-bottom: 15px;
 }
 
-/* Result visualization */
+/* Basic styling for a results bar if used */
 .result-bar {
   height: 20px;
-  background-color: #1976d2;
-  border-radius: 10px;
+  background-color: #101f38;
+  border-radius: 4px;
   margin-bottom: 5px;
   transition: width 0.5s ease-in-out;
-}
-
-.blockchain-block {
-  background-color: #1E3A59; /* Darker background for blocks */
-  border-radius: 8px; /* More rounded */
-  padding: 15px;
-  margin-bottom: 15px;
-  border-left: 4px solid #1976d2;
-}
-
-.hash-text {
-  font-family: monospace;
-  word-break: break-all;
-  background-color: #263238;
-  padding: 5px;
-  border-radius: 4px;
-  color: #FFFFFF;
-}
-
-/* Nav links animation */
-.nav-link {
-  position: relative;
-  color: white;
-  text-decoration: none;
-  font-size: 14px; /* Reduced font size */
-  margin: 0 15px;
-  padding: 5px 0;
-}
-
-.nav-link:after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  transform: scaleX(0);
-  height: 2px;
-  bottom: 0;
-  left: 0;
-  background: linear-gradient(90deg, #0D47A1, #1565C0); /* Smooth gradient */
-  transform-origin: bottom right;
-  transition: transform 0.3s ease-out;
-}
-
-.nav-link:hover:after {
-  transform: scaleX(1);
-  transform-origin: bottom left;
 }
 
 /* Auth form styling */
@@ -118,33 +52,24 @@ body {
   max-width: 450px;
   margin: 40px auto;
   padding: 25px;
-  border-radius: 10px; /* More rounded corners */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); /* Enhanced shadow */
-  background-color: #0F2137;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  background-color: #223549;
 }
 
 .auth-title {
   text-align: center;
   margin-bottom: 25px;
-  color: #1976d2;
+  color: #2979FF;
   font-size: 1.3rem;
+  font-weight: 700;
 }
 
-/* Button styling for both native and MUI buttons */
+/* MUI button overrides */
 button,
 .MuiButton-root {
-  border-radius: 30px !important; /* More rounded */
-  background: linear-gradient(90deg, #0D47A1, #1565C0) !important; /* Smooth gradient */
+  border-radius: 4px !important;
   font-size: 14px !important;
   text-transform: none !important;
-  padding: 10px 20px !important;
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .auth-card {
-    max-width: 95%;
-    margin: 20px auto;
-    padding: 15px;
-  }
+  padding: 8px 20px !important;
 }
