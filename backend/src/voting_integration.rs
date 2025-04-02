@@ -10,6 +10,8 @@ pub enum VotingError {
     DatabaseError(String),
     ValidationError(String),
     AlreadyVoted(String),
+    PollNotFound(String),
+    BlockchainError(String),
 }
 
 impl From<VoteServiceError> for VotingError {
@@ -29,6 +31,8 @@ impl std::fmt::Display for VotingError {
             VotingError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
             VotingError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             VotingError::AlreadyVoted(msg) => write!(f, "Already voted: {}", msg),
+            VotingError::PollNotFound(msg) => write!(f, "Poll not found: {}", msg),
+            VotingError::BlockchainError(msg) => write!(f, "Blockchain error: {}", msg),
         }
     }
 }
@@ -63,7 +67,7 @@ impl VotingIntegration {
                 }
             }
         };
-
+    
         // Check if the voter has already voted in the database
         let already_voted = self.vote_service.has_voted(poll_id, voter_id).await?;
         if already_voted {
@@ -71,44 +75,42 @@ impl VotingIntegration {
                 format!("Voter {} has already voted in poll {}", voter_id, poll_id)
             ));
         }
-
-        // Process vote data consistently into a structured JSON object
-        // We'll store the poll_type in the final JSON so we can see it in the transaction
-        let mut processed_vote = if vote_data.is_string() {
+    
+        // Process vote data into a structured JSON object WITHOUT adding a redundant "candidate" field
+        let processed_vote = if vote_data.is_string() {
+            // For simple string votes, create a default contest field instead of a candidate field
             json!({
                 "voter_id": voter_id,
-                "candidate": vote_data.as_str().unwrap()
+                "default_choice": vote_data.as_str().unwrap(),
+                "poll_type": poll_type
             })
         } else if vote_data.is_object() {
             let mut vote_obj = vote_data.as_object().unwrap().clone();
+            
+            // Add voter_id and poll_type to the vote data
             vote_obj.insert("voter_id".to_string(), Value::String(voter_id.to_string()));
-            if !vote_obj.contains_key("candidate") {
-                if let Some(choice) = vote_obj.get("choice").and_then(|v| v.as_str()) {
-                    vote_obj.insert("candidate".to_string(), Value::String(choice.to_string()));
-                } else {
-                    vote_obj.insert("candidate".to_string(), Value::String("unknown".to_string()));
-                }
-            }
+            vote_obj.insert("poll_type".to_string(), Value::String(poll_type.to_string()));
+            
+            // IMPORTANT: Remove the redundant "candidate" field if it exists
+            vote_obj.remove("candidate");
+            
             Value::Object(vote_obj)
         } else {
+            // For other types, convert to a default field
             json!({
                 "voter_id": voter_id,
-                "candidate": serde_json::to_string(&vote_data).unwrap_or("unknown".to_string())
+                "default_choice": serde_json::to_string(&vote_data).unwrap_or("unknown".to_string()),
+                "poll_type": poll_type
             })
         };
-
-        // Insert the poll_type into the processed vote
-        if let Some(obj) = processed_vote.as_object_mut() {
-            obj.insert("poll_type".to_string(), Value::String(poll_type.to_string()));
-        }
-
+    
         // Add vote to blockchain using the processed vote
         {
             let mut pm = self.poll_manager.lock().await;
             pm.add_vote(poll_id, processed_vote.clone())
                 .map_err(|e| VotingError::PollManagerError(e.to_string()))?;
         }
-
+    
         // Record vote in database using the same processed vote
         let vote_request = VoteRequest {
             poll_id: poll_id.to_string(),
@@ -116,7 +118,7 @@ impl VotingIntegration {
             vote_data: processed_vote,
         };
         self.vote_service.record_vote(vote_request).await?;
-
+    
         Ok(())
     }
 

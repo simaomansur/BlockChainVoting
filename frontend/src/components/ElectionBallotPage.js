@@ -12,7 +12,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  TextField
+  TextField,
+  Divider,
+  Card,
+  CardContent
 } from "@mui/material";
 import {
   getPollDetails,
@@ -25,7 +28,6 @@ import { VoterContext } from "../context/VoterContext";
 import StateResultsMap from "./StateResultsMap";
 
 const ElectionBallotPage = ({ pollId = "election" }) => {
-
   const { voter } = useContext(VoterContext);
 
   const [election, setElection] = useState(null);
@@ -39,15 +41,16 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
   const [blockchain, setBlockchain] = useState(null);
   const [validity, setValidity] = useState(null);
   const [voteCounts, setVoteCounts] = useState(null);
+  const [fetchingCounts, setFetchingCounts] = useState(false);
 
-  // Toggle map
+  // Toggle sections
   const [showMap, setShowMap] = useState(false);
+  const [showBlockchain, setShowBlockchain] = useState(false);
 
   // A "state" text, so user can pick what state they're voting from
-  // (You must store "state" in each vote for the aggregator to do by-state breakdown)
   const [voterState, setVoterState] = useState("");
 
-  // 2) Load the poll details dynamically
+  // Load the poll details dynamically
   useEffect(() => {
     const fetchElection = async () => {
       try {
@@ -60,13 +63,20 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
         }
 
         // If pollData.options is an array, parse the first string as a JSON object of contests
-        // e.g. { presidency: ["Candidate A", "Candidate B"], ... }
         if (Array.isArray(pollData.options) && pollData.options.length > 0) {
-          const parsed = JSON.parse(pollData.options[0]);
-          setElection({ ...pollData, options: parsed });
+          try {
+            const parsed = JSON.parse(pollData.options[0]);
+            setElection({ ...pollData, options: parsed });
+          } catch (e) {
+            console.error("Error parsing poll options:", e);
+            setElection(pollData);
+          }
         } else {
           setElection(pollData);
         }
+        
+        // Fetch initial vote counts
+        fetchVoteCounts();
       } catch (err) {
         setError(err.message);
       } finally {
@@ -77,12 +87,25 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
     fetchElection();
   }, [pollId]);
 
-  // 3) Handle a user selecting a candidate in a given "contest"
+  // Handle a user selecting a candidate in a given "contest"
   const handleVoteChange = (contest, choice) => {
     setSelectedVotes((prev) => ({ ...prev, [contest]: choice }));
   };
 
-  // 4) Submit the vote
+  // Fetch the latest vote counts
+  const fetchVoteCounts = async () => {
+    try {
+      setFetchingCounts(true);
+      const countsResp = await getVoteCounts(pollId);
+      setVoteCounts(countsResp.vote_counts);
+    } catch (err) {
+      console.error("Error fetching vote counts:", err);
+    } finally {
+      setFetchingCounts(false);
+    }
+  };
+
+  // Submit the vote
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -99,7 +122,6 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
       return;
     }
     if (!voterState.trim()) {
-      // If you want to enforce selecting a state for the aggregator:
       setError("Please enter the state code (e.g. CA, NY).");
       return;
     }
@@ -109,11 +131,14 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
     setSuccess(null);
 
     try {
-      // Combine the selected races with the "state"
-      // e.g. { presidency: "Candidate A", congress: "Party X", state: "CA" }
+      // Simply combine the selected votes with the state information
+      // NO redundant "candidate" field is added
       const finalVoteData = {
+        // Include all contest-specific votes
         ...selectedVotes,
-        state: voterState.trim().toUpperCase() // e.g. "CA"
+        
+        // Add the state information
+        state: voterState.trim().toUpperCase()
       };
 
       await castVote({
@@ -123,6 +148,12 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
       });
 
       setSuccess("Election vote submitted successfully!");
+      
+      // Reset the form
+      setSelectedVotes({});
+      
+      // Refresh the data
+      await fetchVoteCounts();
       await fetchBlockchainData();
     } catch (err) {
       setError("Error submitting election vote: " + err.message);
@@ -131,7 +162,7 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
     }
   };
 
-  // 5) Fetch the blockchain details and counts
+  // Fetch the blockchain details and counts
   const fetchBlockchainData = async () => {
     try {
       const chainData = await getBlockchain(pollId);
@@ -139,22 +170,94 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
 
       const validityResp = await checkValidity(pollId);
       setValidity(validityResp.valid);
-
-      const countsResp = await getVoteCounts(pollId);
-      setVoteCounts(countsResp.vote_counts);
     } catch (err) {
       console.error("Error fetching blockchain data:", err);
     }
   };
 
+  // Format contest name for display
+  const formatContestName = (contest) => {
+    return contest === "default_choice" 
+      ? "General Vote" 
+      : contest.charAt(0).toUpperCase() + contest.slice(1);
+  };
+
   return (
-    <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4 }}>
+    <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4, mb: 4 }}>
       <Typography variant="h4" align="center" gutterBottom>
-        Election Ballot (Poll ID: {pollId || "Unknown"})
+        Election Ballot
+      </Typography>
+      <Typography variant="subtitle1" align="center" gutterBottom>
+        Poll ID: {pollId || "Unknown"}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+      {/* Vote Counts Section */}
+      <Box sx={{ mt: 3, mb: 4 }}>
+        <Typography variant="h5" align="center" gutterBottom>
+          Live Election Results
+        </Typography>
+        
+        <Box display="flex" justifyContent="center" mb={2}>
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={fetchVoteCounts} 
+            disabled={fetchingCounts}
+            startIcon={fetchingCounts ? <CircularProgress size={20} /> : null}
+          >
+            {fetchingCounts ? "Refreshing..." : "Refresh Results"}
+          </Button>
+        </Box>
+        
+        {fetchingCounts ? (
+          <Box display="flex" justifyContent="center" my={2}>
+            <CircularProgress />
+          </Box>
+        ) : voteCounts && Object.keys(voteCounts).length > 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {Object.entries(voteCounts).map(([contest, candidates]) => (
+              <Card key={contest} variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {formatContestName(contest)}
+                  </Typography>
+                  <Divider sx={{ mb: 1 }} />
+                  <List dense>
+                    {Object.entries(candidates)
+                      .sort(([, a], [, b]) => b - a) // Sort by vote count (descending)
+                      .map(([candidate, count]) => (
+                        <ListItem key={candidate}>
+                          <ListItemText 
+                            primary={
+                              <Typography variant="body1">
+                                <strong>{candidate}</strong>: {count} vote{count !== 1 ? 's' : ''}
+                              </Typography>
+                            } 
+                          />
+                        </ListItem>
+                      ))
+                    }
+                  </List>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        ) : (
+          <Alert severity="info">
+            No votes have been recorded yet for this election.
+          </Alert>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Voting Form */}
+      <Typography variant="h5" align="center" gutterBottom>
+        Cast Your Vote
+      </Typography>
 
       {loadingElection ? (
         <Box display="flex" justifyContent="center" my={2}>
@@ -173,12 +276,13 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
             value={voterState}
             onChange={(e) => setVoterState(e.target.value)}
             fullWidth
-            sx={{ mb: 2 }}
+            required
+            sx={{ mb: 3 }}
           />
 
-          {/* Build a radio group for each contest in the poll's first "options" object */}
+          {/* Build a radio group for each contest in the poll's options object */}
           {Object.keys(election.options).map((contest) => (
-            <Box key={contest} sx={{ mb: 2, p: 2, border: "1px solid #ccc" }}>
+            <Box key={contest} sx={{ mb: 3, p: 2, border: "1px solid #ccc", borderRadius: 2 }}>
               <Typography variant="h6" gutterBottom>
                 {contest.charAt(0).toUpperCase() + contest.slice(1)}
               </Typography>
@@ -214,81 +318,17 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
             disabled={loading}
             sx={{ mb: 2 }}
           >
-            {loading ? "Submitting..." : "Submit Vote"}
+            {loading ? <CircularProgress size={24} /> : "Submit Vote"}
           </Button>
         </form>
       ) : (
         <Typography>No election data available for poll {pollId}.</Typography>
       )}
 
-      {/* A button to fetch the chain details & show them */}
-      <Button
-        variant="outlined"
-        onClick={fetchBlockchainData}
-        fullWidth
-        sx={{ mb: 2 }}
-      >
-        View Blockchain Details
-      </Button>
+      <Divider sx={{ my: 3 }} />
 
-      {blockchain && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h5">Blockchain Data</Typography>
-          {blockchain.map((block, idx) => (
-            <Box key={idx} sx={{ mb: 2, p: 2, border: "1px solid #ccc" }}>
-              <Typography variant="subtitle1">Block Index: {block.index}</Typography>
-              <Typography variant="body2">Timestamp: {block.timestamp}</Typography>
-              <Typography variant="body2">Previous Hash: {block.previous_hash}</Typography>
-              <Typography variant="body2">Hash: {block.hash}</Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                Transactions: {JSON.stringify(block.transactions, null, 2)}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Show validity */}
-      {validity !== null && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h5">Blockchain Validity</Typography>
-          <Alert severity={validity ? "success" : "error"}>
-            {validity
-              ? "Blockchain is valid"
-              : "Blockchain is NOT valid"}
-          </Alert>
-        </Box>
-      )}
-
-      {/* Show aggregated vote counts */}
-      {voteCounts && Object.keys(voteCounts).length > 0 ? (
-        <Box mt={3}>
-          <Typography variant="h5" align="center">
-            Live Vote Counts
-          </Typography>
-          {Object.entries(voteCounts).map(([category, results]) => (
-            <Box key={category} sx={{ mt: 2, borderTop: "1px solid #ccc", pt: 1 }}>
-              <Typography variant="h6">{category}</Typography>
-              <List>
-                {Object.entries(results).map(([choice, count]) => (
-                  <ListItem key={choice}>
-                    <ListItemText primary={`${choice}: ${count} votes`} />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          ))}
-        </Box>
-      ) : (
-        <Box mt={3}>
-          <Typography variant="h6" align="center">
-            No votes yet for poll {pollId}.
-          </Typography>
-        </Box>
-      )}
-
-      {/* Toggleable US Map showing state-level aggregator */}
-      <Box sx={{ mt: 4 }}>
+      {/* Toggleable Map */}
+      <Box sx={{ mt: 3 }}>
         <Button
           variant="contained"
           color="secondary"
@@ -300,8 +340,59 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
 
         {showMap && (
           <Box sx={{ mt: 3 }}>
-            {/* We pass pollId so <StateResultsMap /> can do GET /poll/:pollId/vote_counts_by_state */}
             <StateResultsMap pollId={pollId} />
+          </Box>
+        )}
+      </Box>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Toggleable Blockchain Details */}
+      <Box sx={{ mt: 3 }}>
+        <Button
+          variant="outlined"
+          fullWidth
+          onClick={() => {
+            setShowBlockchain(!showBlockchain);
+            if (!blockchain && !showBlockchain) {
+              fetchBlockchainData();
+            }
+          }}
+        >
+          {showBlockchain ? "Hide Blockchain Details" : "View Blockchain Details"}
+        </Button>
+
+        {showBlockchain && (
+          <Box sx={{ mt: 3 }}>
+            {validity !== null && (
+              <Alert severity={validity ? "success" : "error"} sx={{ mb: 2 }}>
+                {validity
+                  ? "✓ Blockchain is valid and secure"
+                  : "⚠️ Blockchain integrity issue detected"}
+              </Alert>
+            )}
+
+            {blockchain ? (
+              <Box sx={{ maxHeight: 400, overflow: 'auto', border: '1px solid #eee', borderRadius: 2 }}>
+                {blockchain.map((block, idx) => (
+                  <Box key={idx} sx={{ p: 2, borderBottom: '1px solid #eee', backgroundColor: idx % 2 === 0 ? '#f9f9f9' : 'white' }}>
+                    <Typography variant="subtitle1">Block #{block.index}</Typography>
+                    <Typography variant="caption" display="block">
+                      Time: {new Date(block.timestamp).toLocaleString()}
+                    </Typography>
+                    {idx > 0 && (
+                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 1 }}>
+                        Vote: {JSON.stringify(block.transactions, null, 2)}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box display="flex" justifyContent="center" my={2}>
+                <CircularProgress />
+              </Box>
+            )}
           </Box>
         )}
       </Box>

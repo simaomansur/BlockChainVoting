@@ -398,7 +398,7 @@ async fn main() {
         })
         .with(cors.clone());
 
-    let get_vote_counts = warp::get()
+        let get_vote_counts = warp::get()
         .and(warp::path("poll"))
         .and(warp::path::param::<String>())
         .and(warp::path("vote_counts"))
@@ -408,13 +408,27 @@ async fn main() {
             let response = match pm.get_poll(&poll_id) {
                 Some(Poll::Election { blockchain, .. }) => {
                     let counts = blockchain.get_vote_counts();
-                    warp::reply::json(&json!({ "vote_counts": counts }))
+                    // Create a more detailed response with poll info
+                    warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "vote_counts": counts,
+                        "total_votes": blockchain.chain.len() - 1, // Subtract genesis block
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }))
                 },
                 Some(Poll::Normal { blockchain, .. }) => {
                     let counts = blockchain.get_vote_counts();
-                    warp::reply::json(&json!({ "vote_counts": counts }))
+                    warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "vote_counts": counts,
+                        "total_votes": blockchain.chain.len() - 1,
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }))
                 },
-                None => warp::reply::json(&json!({ "error": "Poll not found" }))
+                None => warp::reply::json(&json!({
+                    "error": "Poll not found",
+                    "poll_id": poll_id
+                }))
             };
             Ok::<_, Infallible>(response)
         })
@@ -468,15 +482,27 @@ async fn main() {
             match pm.get_poll(&poll_id) {
                 Some(Poll::Election { blockchain, .. }) => {
                     let results = blockchain.get_vote_counts_by_state();
-                    let json_resp = warp::reply::json(&json!({ "by_state": results }));
+                    let total_votes = blockchain.chain.len() - 1; // Subtract genesis block
+                    
+                    // Create a more detailed response
+                    let json_resp = warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "by_state": results,
+                        "total_votes": total_votes,
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }));
                     Ok::<_, Infallible>(json_resp)
                 },
                 _ => {
-                    let err_resp = warp::reply::json(&json!({ "error": "Not an election poll or not found" }));
+                    let err_resp = warp::reply::json(&json!({
+                        "error": "Not an election poll or not found",
+                        "poll_id": poll_id
+                    }));
                     Ok::<_, Infallible>(err_resp)
                 }
             }
-        });
+        })
+        .with(cors.clone());
 
     let verify_vote = warp::get()
         .and(warp::path("poll"))

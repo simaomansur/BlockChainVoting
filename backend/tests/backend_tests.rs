@@ -160,12 +160,12 @@ mod tests {
         // We expect counts for candidate X and Y accordingly.
         assert_eq!(
             counts.get("X"),
-            Some(&1),
+            Some(&serde_json::Value::Number(serde_json::Number::from(1))),
             "Candidate X should have 1 vote"
         );
         assert_eq!(
             counts.get("Y"),
-            Some(&1),
+            Some(&serde_json::Value::Number(serde_json::Number::from(1))),
             "Candidate Y should have 1 vote"
         );
     }

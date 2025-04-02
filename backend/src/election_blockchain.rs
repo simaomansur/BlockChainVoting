@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use serde_json::{Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use crate::election_block::ElectionBlock;
 use sqlx::postgres::PgRow;
@@ -52,15 +52,25 @@ impl ElectionBlockchain {
     }
 
     /// Returns a HashMap of vote counts for each contest and candidate.
-    /// Assumes each election block's vote (transactions) has a "candidate" field.
+    /// Enhanced version that processes all fields in vote objects as potential contests.
     pub fn get_vote_counts(&self) -> HashMap<String, HashMap<String, u32>> {
         let mut counts: HashMap<String, HashMap<String, u32>> = HashMap::new();
-    
-        for block in self.chain.iter().skip(1) {
+        
+        // Fields to ignore in vote processing
+        let excluded_fields = vec!["voter_id", "state", "poll_type", "candidate", "contest"];
+        
+        for block in self.chain.iter().skip(1) {  // Skip genesis block
             if let Some(vote_obj) = block.transactions.as_object() {
-                if let Some(candidate_val) = vote_obj.get("candidate") {
-                    if let Some(candidate) = candidate_val.as_str() {
-                        counts.entry("default".to_string())
+                // Process each field in the vote as a potential contest
+                for (key, value) in vote_obj {
+                    // Skip excluded fields
+                    if excluded_fields.contains(&key.as_str()) {
+                        continue;
+                    }
+                    
+                    // Process this field as a contest if it has a string value
+                    if let Some(candidate) = value.as_str() {
+                        counts.entry(key.to_string())
                             .or_insert_with(HashMap::new)
                             .entry(candidate.to_string())
                             .and_modify(|c| *c += 1)
@@ -69,26 +79,39 @@ impl ElectionBlockchain {
                 }
             }
         }
+        
         counts
     }
 
     pub fn get_vote_counts_by_state(&self) -> HashMap<String, HashMap<String, u32>> {
-        let mut result = HashMap::new();
+        let mut result: HashMap<String, HashMap<String, u32>> = HashMap::new();
+        let excluded_fields = vec!["voter_id", "state", "poll_type", "candidate", "contest"];
+        
         for block in self.chain.iter().skip(1) {
             if let Some(obj) = block.transactions.as_object() {
-                // Example: 
-                //   "state": "CA", 
-                //   "candidate": "Candidate A"
+                // Get the state from the vote
                 let state = obj.get("state").and_then(|v| v.as_str()).unwrap_or("Unknown");
-                let candidate = obj.get("candidate").and_then(|v| v.as_str()).unwrap_or("N/A");
-                result
-                    .entry(state.to_string())
-                    .or_insert_with(HashMap::new)
-                    .entry(candidate.to_string())
-                    .and_modify(|count| *count += 1)
-                    .or_insert(1);
+                
+                // Process each contest in the vote
+                for (key, value) in obj {
+                    // Skip excluded fields
+                    if excluded_fields.contains(&key.as_str()) {
+                        continue;
+                    }
+                    
+                    if let Some(candidate) = value.as_str() {
+                        // Store votes by state and key (contest name)
+                        result
+                            .entry(state.to_string())
+                            .or_insert_with(|| HashMap::new())
+                            .entry(format!("{}: {}", key, candidate))
+                            .and_modify(|count| *count += 1)
+                            .or_insert(1);
+                    }
+                }
             }
         }
+        
         result
     }
 
