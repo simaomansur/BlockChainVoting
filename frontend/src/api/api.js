@@ -38,6 +38,7 @@ export const changePassword = async (voterId, passwordData) =>
 export const getExistingPolls = async () =>
   api.get("/polls").then((res) => res.data);
 
+// Modified to receive poll ID from the server
 export const createPoll = async (pollData) =>
   api.post("/poll/create", pollData).then((res) => res.data);
 

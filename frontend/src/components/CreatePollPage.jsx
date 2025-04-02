@@ -7,7 +7,6 @@ import { TextField, Button, Typography, Grid, Paper, Checkbox, FormControlLabel,
 const CreatePollPage = () => {
   const { voter } = useContext(VoterContext);
   const [pollData, setPollData] = useState({
-    poll_id: "",
     title: "",
     question: "",
     options: "",
@@ -16,6 +15,7 @@ const CreatePollPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [createdPollId, setCreatedPollId] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,7 +28,7 @@ const CreatePollPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!pollData.poll_id || !pollData.title || !pollData.question || !pollData.options) {
+    if (!pollData.title || !pollData.question || !pollData.options) {
       setError("All fields are required.");
       return;
     }
@@ -44,9 +44,10 @@ const CreatePollPage = () => {
         ...pollData,
         options: pollData.options.split(",").map((opt) => opt.trim()),
       };
-      await createPoll(formattedPollData);
+      const response = await createPoll(formattedPollData);
       setSuccess("Poll created successfully!");
-      setPollData({ poll_id: "", title: "", question: "", options: "", is_public: true });
+      setCreatedPollId(response.poll_id); // Store the generated poll ID from response
+      setPollData({ title: "", question: "", options: "", is_public: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -76,6 +77,11 @@ const CreatePollPage = () => {
       {success && (
         <Alert severity="success" sx={{ mb: 2, borderRadius: 2, backgroundColor: "rgba(0,255,0,0.1)", color: "#FFFFFF" }}>
           {success}
+          {createdPollId && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Poll ID: <strong>{createdPollId}</strong> (Save this ID to access your poll)
+            </Typography>
+          )}
         </Alert>
       )}
       <form onSubmit={handleSubmit}>
@@ -90,16 +96,6 @@ const CreatePollPage = () => {
                 "& .MuiInputLabel-root": { color: "#B0BEC5" },
                 "& .Mui-disabled": { WebkitTextFillColor: "#B0BEC5" },
               }}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Poll ID"
-              name="poll_id"
-              value={pollData.poll_id}
-              onChange={handleChange}
-              sx={{ "& .MuiInputLabel-root": { color: "#B0BEC5" } }}
             />
           </Grid>
           <Grid item xs={12}>
