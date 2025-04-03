@@ -60,7 +60,7 @@ impl MerkleTree {
 pub struct MerkleNode {
     hash: Vec<u8>,
     left: Option<Box<MerkleNode>>,
-    right: Option<Box<MerkleNode>>,
+    right: Option<Box<MerkleNode>>
 }
 
 impl MerkleNode {

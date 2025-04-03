@@ -123,15 +123,19 @@ const PollDetailsPage = () => {
     setLoadingVote(true);
     setError(null);
     setSuccess(null);
-
+  
     try {
       await castVote({
         poll_id: pollId,
         voter_id: voter.voterId,
-        vote: selectedChoice,
+        vote: {
+          choice: selectedChoice,
+          state: "Unknown"
+        }
       });
+      
       setSuccess("Vote submitted successfully!");
-
+  
       // Refresh counts
       const countsData = await getVoteCounts(pollId);
       if (countsData && countsData.vote_counts) {
@@ -145,12 +149,17 @@ const PollDetailsPage = () => {
         );
         setChartData(formatted);
       }
-
+  
       setHasVoted(true);
       // Refresh chain to show the new block
       await refreshChain();
     } catch (err) {
-      setError(err.message || "Error submitting vote.");
+      // Handle error gracefully
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(err.message || "Error submitting vote.");
+      }
     } finally {
       setLoadingVote(false);
     }

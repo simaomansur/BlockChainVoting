@@ -3,18 +3,17 @@ use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use crate::merkle_tree::{MerkleTree, MerkleNode};
-use sqlx::{Error, Row}; // Ensure you have sqlx in your Cargo.toml
+use sqlx::{Error, Row};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub index: i32,
     pub timestamp: i64,
-    pub transactions: Vec<Value>, // Structured transactions
+    pub transactions: Vec<Value>,
     pub previous_hash: String,
     pub hash: String,
     #[serde(skip)]
     pub merkle_tree: MerkleTree,
-    // NEW: Finalized flag to enforce immutability
     pub finalized: bool,
 }
 
@@ -43,7 +42,6 @@ impl Block {
     }
 
     /// Creates a Block instance from a database row.
-    /// Adjust the row type as needed for your database and schema.
     pub fn from_db_row(row: &sqlx::postgres::PgRow) -> Result<Self, Error> {
         // Extract the block's fields from the database row.
         let index: i32 = row.try_get("index")?;
@@ -72,7 +70,6 @@ impl Block {
     }
 
     /// Returns the Merkle root of the block as a hex string, if available.
-    /// Assumes that `MerkleTree` provides a `root()` method returning an Option<Vec<u8>>.
     pub fn merkle_root(&self) -> Option<String> {
         self.merkle_tree.root().map(|root_bytes| hex::encode(root_bytes))
     }

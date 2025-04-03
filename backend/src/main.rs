@@ -13,9 +13,8 @@ use election_initializer::init_election_poll;
 use sqlx::migrate::Migrator;
 use dotenv::dotenv;
 mod db;
-
-use sqlx::Row; // For try_get on rows
-use std::fs;   // For reading states-10m.json
+use sqlx::Row;
+use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoteInput {
@@ -73,7 +72,6 @@ async fn serve_states_map() -> Result<impl warp::Reply, Infallible> {
     let file_path = "data/states-10m.json";
     match fs::read_to_string(file_path) {
         Ok(contents) => {
-            // Return with 200 OK
             Ok(warp::reply::with_status(
                 warp::reply::with_header(contents, "Content-Type", "application/json"),
                 warp::http::StatusCode::OK
@@ -82,7 +80,6 @@ async fn serve_states_map() -> Result<impl warp::Reply, Infallible> {
         Err(e) => {
             eprintln!("Error reading states-10m.json: {}", e);
             let err_json = r#"{"error":"Could not load states-10m.json"}"#.to_string();
-            // Return with 500
             Ok(warp::reply::with_status(
                 warp::reply::with_header(err_json, "Content-Type", "application/json"),
                 warp::http::StatusCode::INTERNAL_SERVER_ERROR
@@ -105,17 +102,69 @@ async fn main() {
     // Create PollManager
     let poll_manager = Arc::new(Mutex::new(PollManager::new(pool.clone())));
 
-    // Load existing polls
+    // Load all polls with their votes in one step
+    println!("Loading polls and their votes from database...");
+    let poll_rows = sqlx::query("SELECT poll_id FROM polls")
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to fetch poll rows");
+
+    println!("Found {} polls to load", poll_rows.len());
+
+    // First load the poll structures
     {
-        let poll_rows = sqlx::query("SELECT poll_id FROM polls")
-            .fetch_all(&pool)
-            .await
-            .expect("Failed to fetch poll rows");
-        
         let mut pm = poll_manager.lock().await;
         for row in poll_rows {
             let poll_id: String = row.try_get("poll_id").expect("Failed to extract poll_id");
-            pm.load_poll(&poll_id).await.expect("Failed to load poll");
+            println!("Loading poll structure for: {}", poll_id);
+            if let Err(e) = pm.load_poll(&poll_id).await {
+                eprintln!("Failed to load poll {}: {}", poll_id, e);
+            }
+        }
+    }
+
+    // Now load the votes for each poll
+    {
+        let poll_ids: Vec<String> = {
+            let pm = poll_manager.lock().await;
+            pm.polls.keys().cloned().collect()
+        };
+    
+        for poll_id in poll_ids {
+            println!("Loading votes for poll: {}", poll_id);
+            
+            // Fetch votes for this poll
+            let vote_rows = match sqlx::query("SELECT vote FROM votes WHERE poll_id = $1")
+                .bind(&poll_id)
+                .fetch_all(&pool)
+                .await 
+            {
+                Ok(rows) => rows,
+                Err(e) => {
+                    eprintln!("Error fetching votes for poll {}: {}", poll_id, e);
+                    continue;
+                }
+            };
+            
+            println!("Found {} votes for poll {}", vote_rows.len(), poll_id);
+            
+            // Add votes to the blockchain
+            let mut pm = poll_manager.lock().await;
+            for vote_row in vote_rows {
+                let vote_data: serde_json::Value = match vote_row.try_get("vote") {
+                    Ok(data) => data,
+                    Err(e) => {
+                        eprintln!("Failed to extract vote data: {}", e);
+                        continue;
+                    }
+                };
+                
+                // Add the vote to the poll
+                if let Err(e) = pm.add_vote(&poll_id, vote_data.clone()) {
+                    eprintln!("Failed to add vote to poll {}: {}", poll_id, e);
+                    eprintln!("Vote data: {}", serde_json::to_string_pretty(&vote_data).unwrap_or_default());
+                }
+            }
         }
     }
 
@@ -398,7 +447,7 @@ async fn main() {
         })
         .with(cors.clone());
 
-    let get_vote_counts = warp::get()
+        let get_vote_counts = warp::get()
         .and(warp::path("poll"))
         .and(warp::path::param::<String>())
         .and(warp::path("vote_counts"))
@@ -408,13 +457,27 @@ async fn main() {
             let response = match pm.get_poll(&poll_id) {
                 Some(Poll::Election { blockchain, .. }) => {
                     let counts = blockchain.get_vote_counts();
-                    warp::reply::json(&json!({ "vote_counts": counts }))
+                    // Create a more detailed response with poll info
+                    warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "vote_counts": counts,
+                        "total_votes": blockchain.chain.len() - 1, // Subtract genesis block
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }))
                 },
                 Some(Poll::Normal { blockchain, .. }) => {
                     let counts = blockchain.get_vote_counts();
-                    warp::reply::json(&json!({ "vote_counts": counts }))
+                    warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "vote_counts": counts,
+                        "total_votes": blockchain.chain.len() - 1,
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }))
                 },
-                None => warp::reply::json(&json!({ "error": "Poll not found" }))
+                None => warp::reply::json(&json!({
+                    "error": "Poll not found",
+                    "poll_id": poll_id
+                }))
             };
             Ok::<_, Infallible>(response)
         })
@@ -468,15 +531,27 @@ async fn main() {
             match pm.get_poll(&poll_id) {
                 Some(Poll::Election { blockchain, .. }) => {
                     let results = blockchain.get_vote_counts_by_state();
-                    let json_resp = warp::reply::json(&json!({ "by_state": results }));
+                    let total_votes = blockchain.chain.len() - 1; // Subtract genesis block
+                    
+                    // Create a more detailed response
+                    let json_resp = warp::reply::json(&json!({
+                        "poll_id": poll_id,
+                        "by_state": results,
+                        "total_votes": total_votes,
+                        "timestamp": chrono::Utc::now().timestamp()
+                    }));
                     Ok::<_, Infallible>(json_resp)
                 },
                 _ => {
-                    let err_resp = warp::reply::json(&json!({ "error": "Not an election poll or not found" }));
+                    let err_resp = warp::reply::json(&json!({
+                        "error": "Not an election poll or not found",
+                        "poll_id": poll_id
+                    }));
                     Ok::<_, Infallible>(err_resp)
                 }
             }
-        });
+        })
+        .with(cors.clone());
 
     let verify_vote = warp::get()
         .and(warp::path("poll"))
@@ -551,7 +626,7 @@ async fn main() {
         .or(integrated_voting_routes)
         .or(poll_routes)
         .or(get_vote_counts_by_state)
-        .or(serve_us_map) // The new route for states
+        .or(serve_us_map)
         .or(options)
         .with(cors)
         .recover(handle_rejection);

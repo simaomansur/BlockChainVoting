@@ -20,7 +20,7 @@ impl Blockchain {
     pub fn add_block(&mut self, transaction: Value) {
         let previous_block = self.chain.last().unwrap();
         let mut new_block = Block::new(previous_block.index as u32 + 1, transaction, previous_block.hash.clone());
-        new_block.finalize(); // Finalize immediately
+        new_block.finalize();
         self.chain.push(new_block);
     }
 
@@ -53,12 +53,24 @@ impl Blockchain {
     }
 
     /// Aggregates vote counts by iterating over transactions in each block.
-    /// Assumes each transaction has a "candidate" field.
     pub fn get_vote_counts(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut vote_counts = serde_json::Map::new();
         for block in self.chain.iter().skip(1) {
             for transaction in &block.transactions {
                 if let Some(obj) = transaction.as_object() {
+                    // Try to get the vote from the "choice" field first (new format)
+                    if let Some(choice_val) = obj.get("choice") {
+                        if let Some(choice) = choice_val.as_str() {
+                            let count = vote_counts.entry(choice.to_string())
+                                .or_insert(serde_json::json!(0));
+                            if let Some(n) = count.as_u64() {
+                                *count = serde_json::json!(n + 1);
+                            }
+                        }
+                        continue; // Skip to next transaction after processing choice
+                    }
+                    
+                    // Then try the "candidate" field (old format)
                     if let Some(candidate_val) = obj.get("candidate") {
                         if let Some(candidate) = candidate_val.as_str() {
                             let count = vote_counts.entry(candidate.to_string())
@@ -66,6 +78,16 @@ impl Blockchain {
                             if let Some(n) = count.as_u64() {
                                 *count = serde_json::json!(n + 1);
                             }
+                        }
+                        continue; // Skip to next transaction after processing candidate
+                    }
+                    
+                    // If neither field exists, try to use the transaction itself as a string
+                    if let Some(vote_str) = transaction.as_str() {
+                        let count = vote_counts.entry(vote_str.to_string())
+                            .or_insert(serde_json::json!(0));
+                        if let Some(n) = count.as_u64() {
+                            *count = serde_json::json!(n + 1);
                         }
                     }
                 }

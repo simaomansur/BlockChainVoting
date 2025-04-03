@@ -11,7 +11,6 @@ pub async fn init_election_poll(pm: &mut PollManager) {
         println!("No existing election poll found. Creating a default election poll with multiple offices...");
 
         // A more detailed set of options for a national election
-        // Feel free to add or remove contests as needed.
         let election_options = r#"{
             "presidency": ["Candidate A", "Candidate B", "Candidate C"],
             "senate": ["Candidate X", "Candidate Y", "Candidate Z"],
@@ -20,7 +19,6 @@ pub async fn init_election_poll(pm: &mut PollManager) {
             "propositions": ["Yes on Prop 1", "No on Prop 1", "Yes on Prop 2", "No on Prop 2"]
         }"#.to_string();
 
-        // You can customize the question, title, and poll type.
         // poll_type is "election" so that it’s recognized as an election poll.
         let election_poll = PollInput {
             title: "2024 National General Election".to_string(),
@@ -31,7 +29,6 @@ pub async fn init_election_poll(pm: &mut PollManager) {
         };
 
         // Attempt to create a new poll; a poll_id (UUID) will be auto-generated.
-        // Store or log poll_id for reference if desired.
         match pm.create_poll(election_poll).await {
             Ok(poll_id) => {
                 println!("Successfully created new election poll with poll_id: {}", poll_id);
