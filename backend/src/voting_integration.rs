@@ -76,9 +76,8 @@ impl VotingIntegration {
             ));
         }
     
-        // Process vote data into a structured JSON object WITHOUT adding a redundant "candidate" field
+        // Process vote data into a structured JSON object
         let processed_vote = if vote_data.is_string() {
-            // For simple string votes, create a default contest field instead of a candidate field
             json!({
                 "voter_id": voter_id,
                 "default_choice": vote_data.as_str().unwrap(),
@@ -90,9 +89,6 @@ impl VotingIntegration {
             // Add voter_id and poll_type to the vote data
             vote_obj.insert("voter_id".to_string(), Value::String(voter_id.to_string()));
             vote_obj.insert("poll_type".to_string(), Value::String(poll_type.to_string()));
-            
-            // IMPORTANT: Remove the redundant "candidate" field if it exists
-            vote_obj.remove("candidate");
             
             Value::Object(vote_obj)
         } else {

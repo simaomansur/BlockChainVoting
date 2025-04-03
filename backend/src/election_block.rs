@@ -9,7 +9,7 @@ use sqlx::Row;
 pub struct ElectionBlock {
     pub index: u32,
     pub timestamp: i64,
-    pub transactions: Value, // A single vote stored as a JSON object
+    pub transactions: Value,
     pub previous_hash: String,
     pub hash: String,
     #[serde(skip)]
@@ -66,7 +66,6 @@ impl ElectionBlock {
     }
 
     /// Reconstructs an ElectionBlock from a database row.
-    /// Assumes the "transactions" column stores a JSON object as a string.
     pub fn from_db_row(row: &sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
         let index: i32 = row.try_get("block_index")?;
         let timestamp: i64 = row.try_get("timestamp")?;

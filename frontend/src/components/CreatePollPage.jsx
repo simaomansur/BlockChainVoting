@@ -89,18 +89,6 @@ const CreatePollPage = () => {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Voter ID"
-              value={voter?.voterId || ""}
-              disabled
-              sx={{
-                "& .MuiInputLabel-root": { color: "#B0BEC5" },
-                "& .Mui-disabled": { WebkitTextFillColor: "#B0BEC5" },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
               label="Poll Title"
               name="title"
               value={pollData.title}

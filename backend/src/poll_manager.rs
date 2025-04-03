@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-use serde_json::{Value};
+use serde_json::Value;
 use crate::blockchain::Blockchain;
 use crate::election_blockchain::ElectionBlockchain;
 use sqlx::{Pool, Postgres, Row};
@@ -39,12 +39,10 @@ impl PollManager {
         }
     }
 
-    /// Creates a new poll with a random UUID poll ID, unless you want a single named poll.
-    /// Returns the `poll_id` that was inserted into the DB (and stored in memory).
+    /// Creates a new poll and stores it in memory and the database.
     pub async fn create_poll(&mut self, poll: PollInput) -> Result<String, sqlx::Error> {
         use uuid::Uuid;
         // If poll_type is "election", force the poll_id to "election".
-        // Otherwise, generate a random UUID.
         let poll_type = poll.poll_type.clone().unwrap_or_else(|| "normal".to_string());
         let poll_id = if poll_type == "election" {
             "election".to_string()
@@ -57,9 +55,7 @@ impl PollManager {
     }
 
     /// Creates a poll with a *fixed* poll ID (e.g. "election") so you can force exactly one official election.
-    /// If the poll_id already exists, returns an error.
     pub async fn create_named_poll(&mut self, poll_id: &str, poll: PollInput) -> Result<(), sqlx::Error> {
-        // If you want to allow overwriting, remove this check.
         if self.polls.contains_key(poll_id) {
             return Err(sqlx::Error::Protocol(
                 format!("Poll ID '{}' already exists in memory", poll_id).into(),

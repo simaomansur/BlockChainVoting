@@ -50,43 +50,6 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
   // A "state" text, so user can pick what state they're voting from
   const [voterState, setVoterState] = useState("");
 
-  // Load the poll details dynamically
-  useEffect(() => {
-    const fetchElection = async () => {
-      try {
-        if (!pollId) {
-          throw new Error("No pollId provided in URL.");
-        }
-        const pollData = await getPollDetails(pollId);
-        if (!pollData || !pollData.options) {
-          throw new Error("Poll data is invalid or missing options.");
-        }
-
-        // If pollData.options is an array, parse the first string as a JSON object of contests
-        if (Array.isArray(pollData.options) && pollData.options.length > 0) {
-          try {
-            const parsed = JSON.parse(pollData.options[0]);
-            setElection({ ...pollData, options: parsed });
-          } catch (e) {
-            console.error("Error parsing poll options:", e);
-            setElection(pollData);
-          }
-        } else {
-          setElection(pollData);
-        }
-        
-        // Fetch initial vote counts
-        fetchVoteCounts();
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoadingElection(false);
-      }
-    };
-
-    fetchElection();
-  }, [pollId]);
-
   // Handle a user selecting a candidate in a given "contest"
   const handleVoteChange = (contest, choice) => {
     setSelectedVotes((prev) => ({ ...prev, [contest]: choice }));
@@ -97,11 +60,32 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
     try {
       setFetchingCounts(true);
       const countsResp = await getVoteCounts(pollId);
-      setVoteCounts(countsResp.vote_counts);
+      
+      // Check if we got valid vote counts data
+      if (countsResp && countsResp.vote_counts) {
+        setVoteCounts(countsResp.vote_counts);
+        console.log("Loaded vote counts:", countsResp.vote_counts);
+      } else {
+        console.warn("Received empty or invalid vote counts data:", countsResp);
+      }
     } catch (err) {
       console.error("Error fetching vote counts:", err);
+      // Don't set an error message for the user, just log it
     } finally {
       setFetchingCounts(false);
+    }
+  };
+
+  // Fetch the blockchain details and counts
+  const fetchBlockchainData = async () => {
+    try {
+      const chainData = await getBlockchain(pollId);
+      setBlockchain(chainData);
+
+      const validityResp = await checkValidity(pollId);
+      setValidity(validityResp.valid);
+    } catch (err) {
+      console.error("Error fetching blockchain data:", err);
     }
   };
 
@@ -156,22 +140,18 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
       await fetchVoteCounts();
       await fetchBlockchainData();
     } catch (err) {
-      setError("Error submitting election vote: " + err.message);
+      // Better error handling to extract the actual message from the response
+      if (err.response && err.response.data && err.response.data.error) {
+        // Extract the specific error message from the response
+        setError(err.response.data.error);
+      } else {
+        // Fallback to generic error or raw error message
+        setError("Error submitting election vote: " + (err.message || "Unknown error"));
+      }
+      
+      console.error("Vote submission error:", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Fetch the blockchain details and counts
-  const fetchBlockchainData = async () => {
-    try {
-      const chainData = await getBlockchain(pollId);
-      setBlockchain(chainData);
-
-      const validityResp = await checkValidity(pollId);
-      setValidity(validityResp.valid);
-    } catch (err) {
-      console.error("Error fetching blockchain data:", err);
     }
   };
 
@@ -181,6 +161,48 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
       ? "General Vote" 
       : contest.charAt(0).toUpperCase() + contest.slice(1);
   };
+
+  // Load the poll details dynamically
+  useEffect(() => {
+    const fetchElection = async () => {
+      try {
+        if (!pollId) {
+          throw new Error("No pollId provided in URL.");
+        }
+        
+        setLoadingElection(true);
+        const pollData = await getPollDetails(pollId);
+        
+        if (!pollData || !pollData.options) {
+          throw new Error("Poll data is invalid or missing options.");
+        }
+
+        // If pollData.options is an array, parse the first string as a JSON object of contests
+        if (Array.isArray(pollData.options) && pollData.options.length > 0) {
+          try {
+            const parsed = JSON.parse(pollData.options[0]);
+            setElection({ ...pollData, options: parsed });
+          } catch (e) {
+            console.error("Error parsing poll options:", e);
+            setElection(pollData);
+          }
+        } else {
+          setElection(pollData);
+        }
+        
+        // Always fetch vote counts on initial load
+        await fetchVoteCounts();
+        
+      } catch (err) {
+        console.error("Error loading election data:", err);
+        setError(err.message);
+      } finally {
+        setLoadingElection(false);
+      }
+    };
+
+    fetchElection();
+  }, [pollId]);
 
   return (
     <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4, mb: 4 }}>

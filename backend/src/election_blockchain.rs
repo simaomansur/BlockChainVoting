@@ -52,7 +52,6 @@ impl ElectionBlockchain {
     }
 
     /// Returns a HashMap of vote counts for each contest and candidate.
-    /// Enhanced version that processes all fields in vote objects as potential contests.
     pub fn get_vote_counts(&self) -> HashMap<String, HashMap<String, u32>> {
         let mut counts: HashMap<String, HashMap<String, u32>> = HashMap::new();
         

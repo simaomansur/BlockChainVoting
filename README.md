@@ -13,6 +13,9 @@ test
 1. chmod +x run-tests.sh (should only need to do this once)
 2. ./run-tests.sh (runs the tests)
 
+reset db
+1. docker-compose down -v --remove-orphans (stops the app and removes volumes)
+
 search database
 
 1. docker exec -it project-db-1 psql -U username -d my_database

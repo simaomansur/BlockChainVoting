@@ -13,7 +13,14 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Here you could log errors or transform them
+    // Log the error for debugging
+    console.error("API Error:", error);
+    
+    // Preserve the response details for the component to use
+    if (error.response && error.response.data) {
+      console.error("Backend error details:", error.response.data);
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -59,8 +66,20 @@ export const checkValidity = async (pollId) =>
   api.get(`/poll/${pollId}/validity`).then((res) => res.data);
 
 // Vote Management APIs
-export const castVote = async (voteData) =>
-  api.post("/vote", voteData).then((res) => res.data);
+export const castVote = async (voteData) => {
+  try {
+    const response = await api.post("/vote", voteData);
+    return response.data;
+  } catch (error) {
+    // Make sure we preserve the error details from the backend
+    if (error.response && error.response.data) {
+      // Throw an error with the backend error message
+      throw error;
+    }
+    // For network errors or other issues
+    throw new Error("Network error - please try again");
+  }
+};
 
 export const verifyVote = async (pollId, voterId) =>
   api.get(`/vote/${pollId}/${voterId}/verify`).then((res) => res.data);
