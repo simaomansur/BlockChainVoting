@@ -202,7 +202,7 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
     };
 
     fetchElection();
-  }, [pollId]);
+  }, [pollId, fetchVoteCounts]);
 
   return (
     <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4, mb: 4 }}>
