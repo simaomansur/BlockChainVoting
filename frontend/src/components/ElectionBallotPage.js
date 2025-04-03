@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import {
   Paper,
   Typography,
@@ -56,12 +56,11 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
   };
 
   // Fetch the latest vote counts
-  const fetchVoteCounts = async () => {
+  const fetchVoteCounts = useCallback(async () => {
     try {
       setFetchingCounts(true);
       const countsResp = await getVoteCounts(pollId);
-      
-      // Check if we got valid vote counts data
+  
       if (countsResp && countsResp.vote_counts) {
         setVoteCounts(countsResp.vote_counts);
         console.log("Loaded vote counts:", countsResp.vote_counts);
@@ -70,11 +69,10 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
       }
     } catch (err) {
       console.error("Error fetching vote counts:", err);
-      // Don't set an error message for the user, just log it
     } finally {
       setFetchingCounts(false);
     }
-  };
+  }, [pollId]);
 
   // Fetch the blockchain details and counts
   const fetchBlockchainData = async () => {
