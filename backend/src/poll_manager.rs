@@ -241,13 +241,12 @@ impl PollManager {
     /// Persists a newly added block to the database (once you have it).
     pub async fn persist_block(&self, poll_id: &str, block: &crate::block::Block) -> Result<(), sqlx::Error> {
         let transactions_json = serde_json::to_string(&block.transactions).unwrap_or_default();
-        let merkle_root = block.merkle_root().map(|r| hex::encode(r));
         println!("Persisting block {} for poll {} with hash {}", block.index, poll_id, block.hash);
 
         sqlx::query(
             r#"
-            INSERT INTO blocks (poll_id, block_index, timestamp, previous_hash, hash, transactions, merkle_root)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO blocks (poll_id, block_index, timestamp, previous_hash, hash, transactions)
+            VALUES ($1, $2, $3, $4, $5, $6)
             "#
         )
         .bind(poll_id)
@@ -256,7 +255,6 @@ impl PollManager {
         .bind(&block.previous_hash)
         .bind(&block.hash)
         .bind(transactions_json)
-        .bind(merkle_root)
         .execute(&self.pool)
         .await?;
         Ok(())
