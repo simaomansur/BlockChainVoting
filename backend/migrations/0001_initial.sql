@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS voters (
     id SERIAL PRIMARY KEY,
     voter_id TEXT UNIQUE NOT NULL,  -- Unique identifier assigned to the voter
     name TEXT,
-    email TEXT,
+    email TEXT UNIQUE,  -- Unique email for each voter
     zip_code TEXT,
     birth_date DATE,
     password_hash TEXT NOT NULL DEFAULT '',  -- Added here instead of a separate migration
@@ -43,7 +43,6 @@ CREATE TABLE IF NOT EXISTS blocks (
     previous_hash TEXT NOT NULL,
     hash TEXT NOT NULL,
     transactions JSONB NOT NULL,      -- Transactions stored as JSON (for normal polls, a JSON array; for election polls, a JSON object)
-    merkle_root TEXT,                 -- Optional: hex-encoded Merkle root
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (poll_id) REFERENCES polls(poll_id)
 );

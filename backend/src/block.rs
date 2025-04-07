@@ -2,7 +2,6 @@ use sha2::{Digest, Sha256};
 use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
-use crate::merkle_tree::{MerkleTree, MerkleNode};
 use sqlx::{Error, Row};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,8 +11,6 @@ pub struct Block {
     pub transactions: Vec<Value>,
     pub previous_hash: String,
     pub hash: String,
-    #[serde(skip)]
-    pub merkle_tree: MerkleTree,
     pub finalized: bool,
 }
 
@@ -26,17 +23,12 @@ impl Block {
         let transactions_serialized = serde_json::to_string(&transactions_vec).unwrap_or_default();
         let hash = Self::calculate_hash(index, timestamp, &transactions_serialized, &previous_hash);
 
-        let mut merkle_tree = MerkleTree::new();
-        let tx_bytes = serde_json::to_vec(&transaction).unwrap_or_default();
-        merkle_tree.add_node(MerkleNode::hash_data(&tx_bytes));
-
         Block {
             index: index as i32,
             timestamp,
             transactions: transactions_vec,
             previous_hash,
             hash,
-            merkle_tree,
             finalized: false, // Initially not finalized
         }
     }
@@ -51,38 +43,23 @@ impl Block {
         let hash: String = row.try_get("hash")?;
         let finalized: bool = row.try_get("finalized")?;
 
-        // Rebuild the Merkle tree from the stored transactions.
-        let mut merkle_tree = MerkleTree::new();
-        for tx in &transactions {
-            let tx_bytes = serde_json::to_vec(tx).unwrap_or_default();
-            merkle_tree.add_node(MerkleNode::hash_data(&tx_bytes));
-        }
-
         Ok(Block {
             index,
             timestamp,
             transactions,
             previous_hash,
             hash,
-            merkle_tree,
             finalized,
         })
     }
 
-    /// Returns the Merkle root of the block as a hex string, if available.
-    pub fn merkle_root(&self) -> Option<String> {
-        self.merkle_tree.root().map(|root_bytes| hex::encode(root_bytes))
-    }
-
-    /// Adds a new transaction to the block and updates its hash and Merkle tree.
+    /// Adds a new transaction to the block and updates its hash.
     pub fn add_transaction(&mut self, transaction: Value) {
         if self.finalized {
             println!("Block {} is finalized and cannot be modified.", self.index);
             return;
         }
         self.transactions.push(transaction.clone());
-        let tx_bytes = serde_json::to_vec(&transaction).unwrap_or_default();
-        self.merkle_tree.add_node(MerkleNode::hash_data(&tx_bytes));
         let transactions_serialized = serde_json::to_string(&self.transactions).unwrap_or_default();
         self.hash = Self::calculate_hash(self.index as u32, self.timestamp, &transactions_serialized, &self.previous_hash);
     }

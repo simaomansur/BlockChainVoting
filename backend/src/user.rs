@@ -103,6 +103,18 @@ impl UserManager {
         let password_hash = hash_password(&registration.password)
             .map_err(|e| UserError::ValidationError(format!("Password hashing error: {}", e)))?;
 
+        // Check if the email already exists
+        let existing_user = sqlx::query_as::<_, User>(
+            "SELECT id, voter_id, name, email, zip_code, birth_date, created_at, password_hash FROM voters WHERE email = $1"
+        )
+        .bind(&registration.email)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| UserError::DatabaseError(e.to_string()))?;
+        if existing_user.is_some() {
+            return Err(UserError::ValidationError("Email already exists".to_string()));
+        }
+
         // Insert the new user into the database
         let user = sqlx::query_as::<_, User>(
             r#"

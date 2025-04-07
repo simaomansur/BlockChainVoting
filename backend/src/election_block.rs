@@ -2,7 +2,6 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
-use crate::merkle_tree::{MerkleTree, MerkleNode};
 use sqlx::Row;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,8 +11,6 @@ pub struct ElectionBlock {
     pub transactions: Value,
     pub previous_hash: String,
     pub hash: String,
-    #[serde(skip)]
-    pub merkle_tree: MerkleTree,
 }
 
 impl ElectionBlock {
@@ -21,17 +18,12 @@ impl ElectionBlock {
         let timestamp = Utc::now().timestamp_millis();
         let hash = Self::calculate_hash(index, timestamp, &transactions, &previous_hash);
 
-        let mut merkle_tree = MerkleTree::new();
-        let tx_bytes = serde_json::to_vec(&transactions).unwrap_or_default();
-        merkle_tree.add_node(MerkleNode::hash_data(&tx_bytes));
-
         ElectionBlock {
             index,
             timestamp,
             transactions,
             previous_hash,
             hash,
-            merkle_tree,
         }
     }
 
@@ -74,17 +66,12 @@ impl ElectionBlock {
         let transactions_json: String = row.try_get("transactions")?;
         let transactions: Value = serde_json::from_str(&transactions_json).unwrap_or_else(|_| serde_json::json!({}));
 
-        let mut merkle_tree = MerkleTree::new();
-        let tx_bytes = serde_json::to_vec(&transactions).unwrap_or_default();
-        merkle_tree.add_node(MerkleNode::hash_data(&tx_bytes));
-
         Ok(ElectionBlock {
             index: index as u32,
             timestamp,
             transactions,
             previous_hash,
             hash,
-            merkle_tree,
         })
     }
 }
