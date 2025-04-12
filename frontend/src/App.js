@@ -256,6 +256,14 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+              path="/election/vote-details"
+              element={
+              <ProtectedRoute>
+                <ElectionVoteDetails />
+              </ProtectedRoute>
+  }
+/>
             </Routes>
           </Container>
         </Router>
