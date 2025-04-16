@@ -26,9 +26,11 @@ import {
 } from "../api/api";
 import { VoterContext } from "../context/VoterContext";
 import StateResultsMap from "./StateResultsMap";
+import { useNagivate } from "react-router-dom";
 
 const ElectionBallotPage = ({ pollId = "election" }) => {
   const { voter } = useContext(VoterContext);
+  const navigate = useNavigate();
 
   const [election, setElection] = useState(null);
   const [selectedVotes, setSelectedVotes] = useState({});
@@ -364,6 +366,16 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
           </Box>
         )}
       </Box>
+    //Button to navigate to election details
+      <Button
+        variant="contained"
+        color = "secondary"
+        onClick={() => navigate("/election-details/${pollId}")}
+        sx = {{ mt: 2, mb: 2 }}
+      >
+        View Election Details
+      </Button>
+
 
       <Divider sx={{ my: 3 }} />
 
