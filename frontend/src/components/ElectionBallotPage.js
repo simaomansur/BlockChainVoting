@@ -26,6 +26,7 @@ import {
 } from "../api/api";
 import { VoterContext } from "../context/VoterContext";
 import StateResultsMap from "./StateResultsMap";
+import { useNavigate  } from "react-router-dom";//added to go to the elections detail page
 
 const ElectionBallotPage = ({ pollId = "election" }) => {
   const { voter } = useContext(VoterContext);
@@ -201,6 +202,16 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
 
     fetchElection();
   }, [pollId, fetchVoteCounts]);
+    // Add a button to navigate to details page
+    const goToDetailsPage = () => {
+      navigate('/election-details', { 
+        state: { 
+          electionData: election, 
+          pollId: pollId 
+        } 
+      });
+    };
+
 
   return (
     <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", padding: 4, mt: 4, mb: 4 }}>
@@ -340,6 +351,17 @@ const ElectionBallotPage = ({ pollId = "election" }) => {
           >
             {loading ? <CircularProgress size={24} /> : "Submit Vote"}
           </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            onClick={goToDetailsPage}
+            sx={{ mt: 2, mb: 2 }}
+          >
+            View Detailed Results
+          </Button>
+
+        
         </form>
       ) : (
         <Typography>No election data available for poll {pollId}.</Typography>

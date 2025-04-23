@@ -11,6 +11,7 @@ import CreatePollPage from "./components/CreatePollPage";
 import ExistingPollsPage from "./components/ExistingPollsPage";
 import ElectionBallotPage from "./components/ElectionBallotPage";
 import PollDetailsPage from "./components/PollDetailsPage";
+import ElectionDetailsPage from "./components/ElectionDetailsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { AppBar, Toolbar, Button, Typography, Box, Container, CssBaseline } from "@mui/material";
@@ -256,6 +257,14 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/election-details"
+                element={
+                  <ProtectedRoute>
+                    <ElectionDetailsPage />
+                  </ProtectedRoute>
+                }
+               /> 
             </Routes>
           </Container>
         </Router>
